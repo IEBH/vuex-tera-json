@@ -1,0 +1,16 @@
+{
+  "name": "@iebh/vuex-tera-sync",
+  "version": "1.0.0",
+  "description": "A Vuex plugin for syncing state with Tera",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["vuex", "tera", "sync", "plugin"],
+  "author": "Your Name",
+  "license": "MIT",
+  "peerDependencies": {
+    "vuex": "^3.0.0 || ^4.0.0"
+  }
+}
