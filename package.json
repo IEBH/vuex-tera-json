@@ -1,6 +1,9 @@
 {
   "name": "@iebh/vuex-tera-sync",
   "version": "1.0.0",
+  "publishConfig": {
+    "access": "public"
+  },
   "description": "A Vuex plugin for syncing state with Tera",
   "main": "index.js",
   "types": "index.d.ts",
