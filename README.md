@@ -14,7 +14,7 @@ In your Vuex store configuration:
 
 ```javascript
 import Vuex from 'vuex';
-import { createSyncPlugin } from 'vuex-tera-sync';
+import { createSyncPlugin } from '@iebh/vuex-tera-sync';
 
 const store = new Vuex.Store({
   // ... your store configuration
@@ -27,7 +27,7 @@ export default store;
 In your main.js or app initialization:
 
 ```javascript
-import { setVueInstance, setTeraReady } from 'vuex-tera-sync';
+import { setVueInstance, setTeraReady } from '@iebh/vuex-tera-sync';
 import store from './store';
 
 // ... your Vue app initialization

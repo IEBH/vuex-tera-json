@@ -1,18 +1,16 @@
-// index.js
-
-let vueInstance = null;
-let syncPluginInstance = null;
+let vueInstance = null
+let syncPluginInstance = null
 
 const createSyncPlugin = () => (store) => {
-  let initialized = false;
-  let teraReady = false;
+  let initialized = false
+  let teraReady = false
 
   const syncState = () => {
-    if (!teraReady || !vueInstance) return;
+    if (!teraReady || !vueInstance) return
 
     if (vueInstance && vueInstance.$tera && vueInstance.$tera.state) {
       if (!vueInstance.$tera.state.temp) {
-        vueInstance.$tera.state.temp = {};
+        vueInstance.$tera.state.temp = {}
       }
 
       if (!initialized && vueInstance.$tera.state.temp.wordFreq) {
@@ -20,50 +18,50 @@ const createSyncPlugin = () => (store) => {
         store.replaceState({
           ...store.state,
           ...vueInstance.$tera.state.temp.wordFreq
-        });
-        console.log("Vuex store initialized from Tera state");
+        })
+        console.log('Vuex store initialized from Tera state')
       } else {
         // Sync from Vuex to Tera
-        vueInstance.$tera.state.temp.wordFreq = store.state;
+        vueInstance.$tera.state.temp.wordFreq = store.state
       }
 
       if (!initialized) {
-        initialized = true;
-        console.log("Sync plugin initialized");
+        initialized = true
+        console.log('Sync plugin initialized')
       }
     } else {
-      console.error("Unable to sync with TERA state");
+      console.error('Unable to sync with TERA state')
     }
-  };
+  }
 
-  store.subscribe((mutation, state) => {
+  store.subscribe(() => {
     if (teraReady) {
-      syncState();
+      syncState()
     }
-  });
+  })
 
   syncPluginInstance = {
     setTeraReady: () => {
-      teraReady = true;
-      syncState(); // Attempt initial sync when Tera becomes ready
+      teraReady = true
+      syncState() // Attempt initial sync when Tera becomes ready
     }
-  };
+  }
 
-  return syncPluginInstance;
-};
+  return syncPluginInstance
+}
 
 const setVueInstance = (instance) => {
-  vueInstance = instance;
-};
+  vueInstance = instance
+}
 
 const setTeraReady = () => {
   if (syncPluginInstance) {
-    syncPluginInstance.setTeraReady();
+    syncPluginInstance.setTeraReady()
   }
-};
+}
 
 module.exports = {
   createSyncPlugin,
   setVueInstance,
   setTeraReady
-};
+}

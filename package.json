@@ -5,12 +5,25 @@
   "main": "index.js",
   "types": "index.d.ts",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "eslint --ext .js,.vue ."
   },
-  "keywords": ["vuex", "tera", "sync", "plugin"],
-  "author": "Your Name",
+  "keywords": [
+    "vuex",
+    "tera",
+    "sync",
+    "plugin"
+  ],
+  "author": "connorf25",
   "license": "MIT",
   "peerDependencies": {
     "vuex": "^3.0.0 || ^4.0.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.24.7",
+    "@babel/eslint-parser": "^7.24.7",
+    "@vue/eslint-config-standard": "^8.0.1",
+    "eslint": "^8.57.0",
+    "eslint-plugin-vue": "^9.26.0"
   }
 }
