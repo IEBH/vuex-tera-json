@@ -10,6 +10,7 @@ const createSyncPlugin = (key) => (store) => {
 
     if (vueInstance && vueInstance.$tera && vueInstance.$tera.state) {
       if (!vueInstance.$tera.state.temp) {
+        console.log('Creating temp variable to store data')
         vueInstance.$tera.state.temp = {}
       }
 
@@ -23,6 +24,7 @@ const createSyncPlugin = (key) => (store) => {
       } else {
         // Sync from Vuex to Tera
         vueInstance.$tera.state.temp[key] = store.state
+        console.log('Vuex store synced to TERA state')
       }
 
       if (!initialized) {

@@ -10,6 +10,8 @@ npm install vuex-tera-sync
 
 ## Usage
 
+Note: Make sure to remove any localforage/localstorage references in the store as this will create a bug where state gets carried over on new projects.
+
 In your Vuex store configuration, initialize the plugin with `createSyncPlugin(KEY)` where key is a unique identifier for the tool (e.g. `wordFreq` or `polyglot`, etc.):
 
 ```javascript
