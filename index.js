@@ -23,8 +23,8 @@ const createSyncPlugin = (key) => (store) => {
         console.log('Vuex store initialized from Tera state')
       } else {
         // Sync from Vuex to Tera
-        vueInstance.$tera.state.temp[key] = store.state
-        console.log('Vuex store synced to TERA state')
+        vueInstance.$tera.setProjectState(`temp.${key}`, store.state)
+        console.log('Vuex store synced to TERA state using setProjectState')
       }
 
       if (!initialized) {
