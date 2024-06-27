@@ -10,7 +10,7 @@ npm install vuex-tera-sync
 
 ## Usage
 
-In your Vuex store configuration:
+In your Vuex store configuration, initialize the plugin with `createSyncPlugin(KEY)` where key is a unique identifier for the tool (e.g. `wordFreq` or `polyglot`, etc.):
 
 ```javascript
 import Vuex from 'vuex';
@@ -18,7 +18,8 @@ import { createSyncPlugin } from '@iebh/vuex-tera-sync';
 
 const store = new Vuex.Store({
   // ... your store configuration
-  plugins: [createSyncPlugin()]
+  // replace `wordFreq` with the unique identifying key
+  plugins: [createSyncPlugin('wordFreq')]
 });
 
 export default store;
@@ -52,7 +53,7 @@ app.$mount("#app");
 
 ## API
 
-- `createSyncPlugin()`: Creates the Vuex plugin for syncing with Tera.
+- `createSyncPlugin(key)`: Creates the Vuex plugin for syncing with Tera. The key parameter specifies the `key` in the Tera state to be used for syncing.
 - `setVueInstance(instance)`: Sets the Vue instance for the sync plugin.
 - `setTeraReady()`: Signals that Tera is ready and initiates the first sync.
 

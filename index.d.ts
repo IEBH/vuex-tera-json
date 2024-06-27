@@ -1,6 +1,6 @@
 import { Store, Plugin } from 'vuex';
 
-declare function createSyncPlugin(): Plugin<any>;
+declare function createSyncPlugin(key: string): Plugin<any>;
 
 declare function setVueInstance(instance: any): void;
 

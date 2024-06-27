@@ -1,7 +1,7 @@
 let vueInstance = null
 let syncPluginInstance = null
 
-const createSyncPlugin = () => (store) => {
+const createSyncPlugin = (key) => (store) => {
   let initialized = false
   let teraReady = false
 
@@ -13,16 +13,16 @@ const createSyncPlugin = () => (store) => {
         vueInstance.$tera.state.temp = {}
       }
 
-      if (!initialized && vueInstance.$tera.state.temp.wordFreq) {
+      if (!initialized && vueInstance.$tera.state.temp[key]) {
         // Initialize store from Tera state
         store.replaceState({
           ...store.state,
-          ...vueInstance.$tera.state.temp.wordFreq
+          ...vueInstance.$tera.state.temp[key]
         })
         console.log('Vuex store initialized from Tera state')
       } else {
         // Sync from Vuex to Tera
-        vueInstance.$tera.state.temp.wordFreq = store.state
+        vueInstance.$tera.state.temp[key] = store.state
       }
 
       if (!initialized) {
