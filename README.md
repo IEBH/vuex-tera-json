@@ -5,7 +5,7 @@ A Vuex plugin for syncing state with Tera.
 ## Installation
 
 ```bash
-npm install vuex-tera-sync
+npm install @iebh/vuex-tera-sync
 ```
 
 ## Usage
