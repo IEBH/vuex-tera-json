@@ -1,5 +1,6 @@
 let vueInstance = null
 let syncPluginInstance = null
+let userId = null
 
 const DEBUG = false  // Set to false to disable debug logs
 
@@ -65,61 +66,116 @@ const objectToMapSet = (obj) => {
   return obj
 }
 
-const createSyncPlugin = (key) => (store) => {
-  let initialized = false
-  let teraReady = false
+const createSyncPlugin = (keyPrefix) => {
+  return (store) => {
+    let initialized = false
+    let teraReady = false
 
-  const syncState = () => {
-    if (!teraReady || !vueInstance) return
+    const getStorageKey = () => {
+      return `${keyPrefix}-${userId}`
+    }
 
-    if (vueInstance && vueInstance.$tera && vueInstance.$tera.state) {
-      if (!vueInstance.$tera.state.temp) {
-        debugLog('Creating temp variable to store data')
-        vueInstance.$tera.state.temp = {}
+    // New function to handle checking and migrating legacy data
+    const checkAndMigrateLegacyData = async () => {
+      if (!vueInstance || !vueInstance.$tera || !vueInstance.$tera.state || !vueInstance.$tera.state.temp) return null
+
+      const userKey = getStorageKey()
+      const legacyKey = keyPrefix
+
+      // Check if user-specific data exists
+      const hasUserData = vueInstance.$tera.state.temp[userKey]
+      if (hasUserData) {
+        debugLog('User-specific data found, no migration needed')
+        return vueInstance.$tera.state.temp[userKey]
       }
 
-      if (!initialized && vueInstance.$tera.state.temp[key]) {
-        // Initialize store from Tera state
-        debugLog('Initializing store from Tera state:', vueInstance.$tera.state.temp[key])
-        const parsedState = objectToMapSet(vueInstance.$tera.state.temp[key])
-        debugLog('Parsed state:', parsedState)
-        store.replaceState({
-          ...store.state,
-          ...parsedState
-        })
-        debugLog('Vuex store initialized from Tera state')
+      // Check for legacy data
+      const legacyData = vueInstance.$tera.state.temp[legacyKey]
+      if (legacyData) {
+        debugLog('Found legacy data, migrating to user-specific key')
+        // Migrate legacy data to user-specific key
+        await vueInstance.$tera.setProjectState(`temp.${userKey}`, legacyData)
+        // Optionally, clear legacy data
+        // await vueInstance.$tera.setProjectState(`temp.${legacyKey}`, null)
+        debugLog('Legacy data migration complete')
+        return legacyData
+      }
+
+      debugLog('No existing data found')
+      return null
+    }
+
+    const syncState = async () => {
+      if (!teraReady || !vueInstance || !userId) return
+
+      if (vueInstance && vueInstance.$tera && vueInstance.$tera.state) {
+        if (!vueInstance.$tera.state.temp) {
+          debugLog('Creating temp variable to store data')
+          vueInstance.$tera.state.temp = {}
+        }
+
+        if (!initialized) {
+          // Check for and potentially migrate legacy data
+          const existingData = await checkAndMigrateLegacyData()
+
+          if (existingData) {
+            // Initialize store from existing data
+            debugLog('Initializing store from existing data')
+            const parsedState = objectToMapSet(existingData)
+            store.replaceState({
+              ...store.state,
+              ...parsedState
+            })
+            debugLog('Vuex store initialized from existing data')
+          } else {
+            // No existing data found, save current state
+            debugLog('No existing data found, saving current state')
+            const stateToSave = mapSetToObject(store.state)
+            await vueInstance.$tera.setProjectState(`temp.${getStorageKey()}`, stateToSave)
+            debugLog('Initial state saved to TERA')
+          }
+        } else {
+          // Regular sync from Vuex to Tera
+          debugLog('Syncing Vuex store to Tera:', store.state)
+          const stateToSave = mapSetToObject(store.state)
+          await vueInstance.$tera.setProjectState(`temp.${getStorageKey()}`, stateToSave)
+          debugLog('Vuex store synced to TERA state')
+        }
+
+        if (!initialized) {
+          initialized = true
+          debugLog('Sync plugin initialized')
+        }
       } else {
-        // Sync from Vuex to Tera
-        debugLog('Syncing Vuex store to Tera:', store.state)
-        const stateToSave = mapSetToObject(store.state)
-        debugLog('State to save:', stateToSave)
-        vueInstance.$tera.setProjectState(`temp.${key}`, stateToSave)
-        debugLog('Vuex store synced to TERA state using setProjectState')
+        console.error('Unable to sync with TERA state')
       }
+    }
 
-      if (!initialized) {
-        initialized = true
-        debugLog('Sync plugin initialized')
+    store.subscribe(() => {
+      if (teraReady && userId) {
+        syncState()
       }
-    } else {
-      console.error('Unable to sync with TERA state')
+    })
+
+    syncPluginInstance = {
+      setTeraReady: async () => {
+        if (!userId && vueInstance && vueInstance.$tera) {
+          try {
+            const user = await vueInstance.$tera.getUser()
+            userId = user.id
+            debugLog('User ID initialized:', userId)
+          } catch (error) {
+            console.error('Failed to get user ID:', error)
+            return
+          }
+        }
+        teraReady = true
+        syncState() // Attempt initial sync when Tera becomes ready
+      }
     }
+
+    return syncPluginInstance
   }
-
-  store.subscribe(() => {
-    if (teraReady) {
-      syncState()
-    }
-  })
-
-  syncPluginInstance = {
-    setTeraReady: () => {
-      teraReady = true
-      syncState() // Attempt initial sync when Tera becomes ready
-    }
-  }
-
-  return syncPluginInstance
 }
 
 const setVueInstance = (instance) => {
