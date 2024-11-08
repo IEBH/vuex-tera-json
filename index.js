@@ -218,7 +218,14 @@ class TeraSyncPlugin {
    */
   async checkAndMigrateLegacyData() {
     try {
-      if (!this.vueInstance?.$tera?.state?.temp) return null
+      if (
+        !this.vueInstance ||
+        !this.vueInstance.$tera ||
+        !this.vueInstance.$tera.state ||
+        !this.vueInstance.$tera.state.temp
+      ) {
+        return null;
+      }
 
       const userKey = await this.getStorageKey()
       const legacyKey = this.config.keyPrefix
