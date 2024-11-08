@@ -1,205 +1,374 @@
-let vueInstance = null
-let syncPluginInstance = null
-let userId = null
+/**
+ * @constant {boolean}
+ * @description Debug mode flag for logging
+ */
+const DEBUG = false
 
-const DEBUG = false  // Set to false to disable debug logs
+/**
+ * @typedef {Object} TeraPluginConfig
+ * @property {string} keyPrefix - Prefix for storage keys
+ * @property {boolean} isSeparateStateForEachUser - Whether to maintain separate state for each user
+ * @property {number} debounceMs - Debounce timeout in milliseconds for state sync
+ */
 
-function debugLog(...args) {
-  if (DEBUG) {
-    console.log(...args)
+/**
+ * @constant {TeraPluginConfig}
+ * @description Default configuration for the TERA sync plugin
+ */
+const DEFAULT_CONFIG = {
+  keyPrefix: '',
+  isSeparateStateForEachUser: false,
+  debounceMs: 100
+}
+
+/**
+ * Debug logging utility function
+ * @param {...*} args - Arguments to log
+ */
+const debugLog = (...args) => {
+  if (DEBUG) console.log('[TERA Sync]:', ...args)
+}
+
+/**
+ * Error logging utility function
+ * @param {Error} error - The error object
+ * @param {string} context - Context description for the error
+ */
+const logError = (error, context) => {
+  console.error(`[TERA Sync] ${context}:`, error)
+}
+
+/**
+ * Validates the plugin configuration
+ * @param {TeraPluginConfig} config - The configuration to validate
+ * @throws {Error} If configuration is invalid
+ */
+const validateConfig = (config) => {
+  if (typeof config.keyPrefix !== 'string') {
+    throw new Error('keyPrefix must be a string')
+  }
+
+  if (typeof config.isSeparateStateForEachUser !== 'boolean') {
+    throw new Error('isSeparateStateForEachUser must be a boolean')
+  }
+
+  if (typeof config.debounceMs !== 'number' || config.debounceMs < 0) {
+    throw new Error('debounceMs must be a non-negative number')
   }
 }
 
-// Helper function to convert Maps and Sets to plain objects recursively, preserving regular objects
+/**
+ * Validates the Vue instance has required TERA properties
+ * @param {Object} instance - The Vue instance to validate
+ * @throws {Error} If Vue instance is invalid
+ */
+const validateVueInstance = (instance) => {
+  if (!instance) {
+    throw new Error('Vue instance is required')
+  }
+
+  if (!instance.$tera) {
+    throw new Error('Vue instance must have $tera property')
+  }
+
+  if (typeof instance.$tera.getUser !== 'function') {
+    throw new Error('$tera.getUser must be a function')
+  }
+
+  if (typeof instance.$tera.setProjectState !== 'function') {
+    throw new Error('$tera.setProjectState must be a function')
+  }
+}
+
+/**
+ * Converts Maps and Sets to plain objects and arrays for serialization
+ * @param {*} item - The item to convert
+ * @returns {*} The converted item
+ */
 const mapSetToObject = (item) => {
-  if (item instanceof Map) {
-    debugLog('Converting Map to object:', item)
-    const obj = {}
-    obj.__isMap = true  // Set the __isMap property for Map objects
-    item.forEach((value, key) => {
-      obj[key] = mapSetToObject(value)
-    })
-    debugLog('Converted Map:', obj)
-    return obj
-  } else if (item instanceof Set) {
-    debugLog('Converting Set to array:', item)
-    const arr = Array.from(item).map(mapSetToObject)
-    return { __isSet: true, values: arr }  // Mark as Set and store values
-  } else if (Array.isArray(item)) {
-    return item.map(mapSetToObject)
-  } else if (item && typeof item === 'object' && !(item instanceof Date)) {
-    const obj = {}
-    Object.entries(item).forEach(([key, value]) => {
-      obj[key] = mapSetToObject(value)
-    })
-    return obj
+  try {
+    if (item instanceof Map) {
+      debugLog('Converting Map to object')
+      const obj = { __isMap: true }
+      item.forEach((value, key) => {
+        obj[key] = mapSetToObject(value)
+      })
+      return obj
+    }
+
+    if (item instanceof Set) {
+      debugLog('Converting Set to array')
+      return {
+        __isSet: true,
+        values: Array.from(item).map(mapSetToObject)
+      }
+    }
+
+    if (Array.isArray(item)) {
+      return item.map(mapSetToObject)
+    }
+
+    if (item && typeof item === 'object' && !(item instanceof Date)) {
+      const obj = {}
+      Object.entries(item).forEach(([key, value]) => {
+        obj[key] = mapSetToObject(value)
+      })
+      return obj
+    }
+
+    return item
+  } catch (error) {
+    logError(error, 'mapSetToObject conversion failed')
+    return item
   }
-  return item
 }
 
-// Helper function to convert plain objects back to Maps and Sets recursively, only where necessary
+/**
+ * Converts serialized objects back to Maps and Sets
+ * @param {*} obj - The object to convert
+ * @returns {*} The converted object with Maps and Sets restored
+ */
 const objectToMapSet = (obj) => {
-  if (obj && typeof obj === 'object' && !(obj instanceof Map) && !(obj instanceof Set) && !(obj instanceof Date)) {
+  try {
+    if (!obj || typeof obj !== 'object' || obj instanceof Date) {
+      return obj
+    }
+
     if ('__isMap' in obj) {
-      debugLog('Converting object back to Map:', obj)
+      debugLog('Converting object back to Map')
       const map = new Map()
       Object.entries(obj).forEach(([key, value]) => {
         if (key !== '__isMap') {
           map.set(key, objectToMapSet(value))
         }
       })
-      debugLog('Converted back to Map:', map)
       return map
-    } else if ('__isSet' in obj) {
-      debugLog('Converting array back to Set:', obj.values)
-      return new Set(obj.values.map(objectToMapSet))
-    } else if (Array.isArray(obj)) {
-      return obj.map(objectToMapSet)
-    } else {
-      const newObj = {}
-      Object.entries(obj).forEach(([key, value]) => {
-        newObj[key] = objectToMapSet(value)
-      })
-      return newObj
     }
+
+    if ('__isSet' in obj) {
+      debugLog('Converting array back to Set')
+      return new Set(obj.values.map(objectToMapSet))
+    }
+
+    if (Array.isArray(obj)) {
+      return obj.map(objectToMapSet)
+    }
+
+    const newObj = {}
+    Object.entries(obj).forEach(([key, value]) => {
+      newObj[key] = objectToMapSet(value)
+    })
+    return newObj
+  } catch (error) {
+    logError(error, 'objectToMapSet conversion failed')
+    return obj
   }
-  return obj
 }
 
-const createSyncPlugin = (keyPrefix, isSeparateStateForEachUser=false) => {
-  return (store) => {
-    let initialized = false
-    let teraReady = false
+/**
+ * @class TeraSyncPlugin
+ * @description Plugin class for syncing Vuex store state with TERA
+ */
+class TeraSyncPlugin {
+  /**
+   * @constructor
+   * @param {TeraPluginConfig} [config=DEFAULT_CONFIG] - Plugin configuration
+   * @throws {Error} If configuration is invalid
+   */
+  constructor(config = DEFAULT_CONFIG) {
+    const mergedConfig = { ...DEFAULT_CONFIG, ...config }
+    validateConfig(mergedConfig)
 
-    const getStorageKey = () => {
-      // If isSeparateStateForEachUser is false, just use keyPrefix
-      return isSeparateStateForEachUser ? `${keyPrefix}-${userId}` : keyPrefix
+    this.config = mergedConfig
+    this.initialized = false
+    this.teraReady = false
+    this.vueInstance = null
+    this.userId = null
+    this.syncInProgress = false
+    this.pendingSync = false
+  }
+
+  /**
+   * Gets the storage key for the current user
+   * @async
+   * @returns {Promise<string>} The storage key
+   * @throws {Error} If unable to get user ID when separate state is enabled
+   */
+  async getStorageKey() {
+    if (this.config.isSeparateStateForEachUser) {
+      if (!this.userId) {
+        try {
+          const user = await this.vueInstance.$tera.getUser()
+          this.userId = user.id
+          debugLog('User ID initialized:', this.userId)
+        } catch (error) {
+          logError(error, 'Failed to get user ID')
+          throw error
+        }
+      }
+      return `${this.config.keyPrefix}-${this.userId}`
     }
+    return this.config.keyPrefix
+  }
 
-    // Function to handle checking and migrating legacy data
-    const checkAndMigrateLegacyData = async () => {
-      if (!vueInstance || !vueInstance.$tera || !vueInstance.$tera.state || !vueInstance.$tera.state.temp) return null
+  /**
+   * Checks for and migrates legacy data
+   * @async
+   * @returns {Promise<Object|null>} Legacy data if found, null otherwise
+   */
+  async checkAndMigrateLegacyData() {
+    try {
+      if (!this.vueInstance?.$tera?.state?.temp) return null
 
-      const userKey = getStorageKey()
-      const legacyKey = keyPrefix
+      const userKey = await this.getStorageKey()
+      const legacyKey = this.config.keyPrefix
 
-      // Check if user-specific data exists
-      const hasUserData = vueInstance.$tera.state.temp[userKey]
+      const hasUserData = this.vueInstance.$tera.state.temp[userKey]
       if (hasUserData) {
-        debugLog('User-specific data found, no migration needed')
-        return vueInstance.$tera.state.temp[userKey]
+        debugLog('User-specific data found')
+        return hasUserData
       }
 
-      // Check for legacy data
-      const legacyData = vueInstance.$tera.state.temp[legacyKey]
+      const legacyData = this.vueInstance.$tera.state.temp[legacyKey]
       if (legacyData) {
-        debugLog('Found legacy data, migrating to user-specific key')
-        // Migrate legacy data to user-specific key
-        await vueInstance.$tera.setProjectState(`temp.${userKey}`, legacyData)
-        // Optionally, clear legacy data
-        // await vueInstance.$tera.setProjectState(`temp.${legacyKey}`, null)
-        debugLog('Legacy data migration complete')
+        debugLog('Migrating legacy data')
+        await this.vueInstance.$tera.setProjectState(`temp.${userKey}`, legacyData)
         return legacyData
       }
 
-      debugLog('No existing data found')
+      return null
+    } catch (error) {
+      logError(error, 'Legacy data migration failed')
       return null
     }
+  }
 
-    const getExistingState = async () => {
-      if (!vueInstance?.$tera?.state?.temp) return null
-      const key = getStorageKey()
-      return vueInstance.$tera.state.temp[key] || null
+  /**
+   * Syncs the Vuex store state with TERA
+   * @async
+   * @param {Object} store - Vuex store instance
+   */
+  async syncState(store) {
+    if (this.syncInProgress) {
+      this.pendingSync = true
+      return
     }
 
-    const syncState = async () => {
-      // For non-separate state, we don't need userId to proceed
-      if (!teraReady || !vueInstance || (isSeparateStateForEachUser && !userId)) return
+    try {
+      this.syncInProgress = true
 
-      if (vueInstance && vueInstance.$tera && vueInstance.$tera.state) {
-        if (!vueInstance.$tera.state.temp) {
-          debugLog('Creating temp variable to store data')
-          vueInstance.$tera.state.temp = {}
+      if (!this.teraReady || !this.vueInstance) {
+        return
+      }
+
+      if (!this.vueInstance.$tera.state.temp) {
+        this.vueInstance.$tera.state.temp = {}
+      }
+
+      if (!this.initialized) {
+        const existingData = this.config.isSeparateStateForEachUser
+          ? await this.checkAndMigrateLegacyData()
+          : await this.vueInstance.$tera.state.temp[await this.getStorageKey()]
+
+        if (existingData) {
+          const parsedState = objectToMapSet(existingData)
+          store.replaceState({
+            ...store.state,
+            ...parsedState
+          })
+          debugLog('Store initialized from existing data')
         }
+        this.initialized = true
+      }
 
-        if (!initialized) {
-          // Only check for legacy data if isSeparateStateForEachUser is true
-          const existingData = isSeparateStateForEachUser
-            ? await checkAndMigrateLegacyData()
-            : await getExistingState()
+      const stateToSave = mapSetToObject(store.state)
+      await this.vueInstance.$tera.setProjectState(`temp.${await this.getStorageKey()}`, stateToSave)
+      debugLog('State synced to TERA')
 
-          if (existingData) {
-            // Initialize store from existing data
-            debugLog('Initializing store from existing data')
-            const parsedState = objectToMapSet(existingData)
-            store.replaceState({
-              ...store.state,
-              ...parsedState
-            })
-            debugLog('Vuex store initialized from existing data')
-          } else {
-            // No existing data found, save current state
-            debugLog('No existing data found, saving current state')
-            const stateToSave = mapSetToObject(store.state)
-            await vueInstance.$tera.setProjectState(`temp.${getStorageKey()}`, stateToSave)
-            debugLog('Initial state saved to TERA')
-          }
-        } else {
-          // Regular sync from Vuex to Tera
-          debugLog('Syncing Vuex store to Tera:', store.state)
-          const stateToSave = mapSetToObject(store.state)
-          await vueInstance.$tera.setProjectState(`temp.${getStorageKey()}`, stateToSave)
-          debugLog('Vuex store synced to TERA state')
-        }
-
-        if (!initialized) {
-          initialized = true
-          debugLog('Sync plugin initialized')
-        }
-      } else {
-        console.error('Unable to sync with TERA state')
+    } catch (error) {
+      logError(error, 'State sync failed')
+    } finally {
+      this.syncInProgress = false
+      if (this.pendingSync) {
+        this.pendingSync = false
+        this.syncState(store)
       }
     }
+  }
 
-    store.subscribe(() => {
-      if (teraReady && (!isSeparateStateForEachUser || userId)) {
-        syncState()
-      }
-    })
-
-    syncPluginInstance = {
-      setTeraReady: async () => {
-        if (isSeparateStateForEachUser && !userId && vueInstance && vueInstance.$tera) {
-          try {
-            const user = await vueInstance.$tera.getUser()
-            userId = user.id
-            debugLog('User ID initialized:', userId)
-          } catch (error) {
-            console.error('Failed to get user ID:', error)
-            return
-          }
+  /**
+   * Creates the Vuex plugin
+   * @returns {Function} Plugin installation function
+   */
+  createPlugin() {
+    return (store) => {
+      // Debounced store subscription
+      let syncTimeout = null
+      store.subscribe(() => {
+        if (this.teraReady) {
+          clearTimeout(syncTimeout)
+          syncTimeout = setTimeout(
+            () => this.syncState(store),
+            this.config.debounceMs
+          )
         }
-        teraReady = true
-        syncState() // Attempt initial sync when Tera becomes ready
+      })
+
+      return {
+        /**
+         * Sets the TERA ready state and triggers initial sync
+         * @async
+         */
+        setTeraReady: async () => {
+          this.teraReady = true
+          await this.syncState(store)
+        },
+
+        /**
+         * Sets the Vue instance
+         * @param {Object} instance - Vue instance
+         * @throws {Error} If Vue instance is invalid
+         */
+        setVueInstance: (instance) => {
+          validateVueInstance(instance)
+          this.vueInstance = instance
+        },
+
+        /**
+         * Cleans up the plugin
+         */
+        destroy: () => {
+          clearTimeout(syncTimeout)
+          this.initialized = false
+          this.teraReady = false
+        }
       }
     }
-
-    return syncPluginInstance
   }
 }
 
-const setVueInstance = (instance) => {
-  vueInstance = instance
-}
-
-const setTeraReady = () => {
-  if (syncPluginInstance) {
-    syncPluginInstance.setTeraReady()
+/**
+ * Creates a new TERA sync plugin instance
+ * @param {string} keyPrefix - Prefix for storage keys
+ * @param {boolean} [isSeparateStateForEachUser=false] - Whether to maintain separate state for each user
+ * @param {Object} [options={}] - Additional plugin options
+ * @param {number} [options.debounceMs=100] - Debounce timeout in milliseconds
+ * @returns {Function} Plugin installation function
+ * @throws {Error} If parameters are invalid
+ */
+const createSyncPlugin = (keyPrefix, isSeparateStateForEachUser = false, options = {}) => {
+  if (typeof keyPrefix !== 'string') {
+    throw new Error('keyPrefix must be a string')
   }
+
+  const config = {
+    keyPrefix,
+    isSeparateStateForEachUser,
+    ...options
+  }
+
+  const plugin = new TeraSyncPlugin(config)
+  return plugin.createPlugin()
 }
 
-module.exports = {
-  createSyncPlugin,
-  setVueInstance,
-  setTeraReady
-}
+module.exports = { createSyncPlugin }
