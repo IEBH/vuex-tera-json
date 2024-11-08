@@ -66,14 +66,14 @@ const objectToMapSet = (obj) => {
   return obj
 }
 
-const createSyncPlugin = (keyPrefix, isSeperateStateForEachUser=false) => {
+const createSyncPlugin = (keyPrefix, isSeparateStateForEachUser=false) => {
   return (store) => {
     let initialized = false
     let teraReady = false
 
     const getStorageKey = () => {
-      // If isSeperateStateForEachUser is false, just use keyPrefix
-      return isSeperateStateForEachUser ? `${keyPrefix}-${userId}` : keyPrefix
+      // If isSeparateStateForEachUser is false, just use keyPrefix
+      return isSeparateStateForEachUser ? `${keyPrefix}-${userId}` : keyPrefix
     }
 
     // Function to handle checking and migrating legacy data
@@ -114,7 +114,7 @@ const createSyncPlugin = (keyPrefix, isSeperateStateForEachUser=false) => {
 
     const syncState = async () => {
       // For non-separate state, we don't need userId to proceed
-      if (!teraReady || !vueInstance || (isSeperateStateForEachUser && !userId)) return
+      if (!teraReady || !vueInstance || (isSeparateStateForEachUser && !userId)) return
 
       if (vueInstance && vueInstance.$tera && vueInstance.$tera.state) {
         if (!vueInstance.$tera.state.temp) {
@@ -123,8 +123,8 @@ const createSyncPlugin = (keyPrefix, isSeperateStateForEachUser=false) => {
         }
 
         if (!initialized) {
-          // Only check for legacy data if isSeperateStateForEachUser is true
-          const existingData = isSeperateStateForEachUser
+          // Only check for legacy data if isSeparateStateForEachUser is true
+          const existingData = isSeparateStateForEachUser
             ? await checkAndMigrateLegacyData()
             : await getExistingState()
 
@@ -162,14 +162,14 @@ const createSyncPlugin = (keyPrefix, isSeperateStateForEachUser=false) => {
     }
 
     store.subscribe(() => {
-      if (teraReady && (!isSeperateStateForEachUser || userId)) {
+      if (teraReady && (!isSeparateStateForEachUser || userId)) {
         syncState()
       }
     })
 
     syncPluginInstance = {
       setTeraReady: async () => {
-        if (isSeperateStateForEachUser && !userId && vueInstance && vueInstance.$tera) {
+        if (isSeparateStateForEachUser && !userId && vueInstance && vueInstance.$tera) {
           try {
             const user = await vueInstance.$tera.getUser()
             userId = user.id
