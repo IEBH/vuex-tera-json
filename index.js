@@ -327,6 +327,7 @@ class TeraSyncPlugin {
          * @async
          */
         setTeraReady: async () => {
+          validateVueInstance(this.vueInstance)
           this.teraReady = true
           await this.syncState(store)
         },
@@ -337,7 +338,6 @@ class TeraSyncPlugin {
          * @throws {Error} If Vue instance is invalid
          */
         setVueInstance: (instance) => {
-          validateVueInstance(instance)
           this.vueInstance = instance
         },
 
