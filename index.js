@@ -256,9 +256,9 @@ class TeraSyncPlugin {
    * @param {Object} store - Vuex store instance
    */
   async syncState(store) {
-    if (this.syncInProgress) {
-      this.pendingSync = true
-      return
+    if (this.syncInProgress || this.isApplyingRemoteUpdate) {
+      this.pendingSync = true;
+      return;
     }
 
     try {
@@ -304,6 +304,55 @@ class TeraSyncPlugin {
   }
 
   /**
+   * Sets up a watcher for remote TERA state changes
+   */
+  async setupRemoteWatcher(store) {
+    try {
+      const storageKey = await this.getStorageKey();
+
+      // Watch for changes to the TERA state
+      this.teraStateWatcher = this.vueInstance.$watch(
+        () => this.vueInstance.$tera.state.temp[storageKey],
+        (newState) => {
+          if (newState && this.teraReady) {
+            this.handleRemoteChange(store, newState);
+          }
+        },
+        { deep: true, immediate: true }
+      );
+    } catch (error) {
+      logError(error, 'Failed to setup remote watcher');
+    }
+  }
+
+  /**
+   * Handles remote state changes from TERA
+   */
+  handleRemoteChange(store, newState) {
+    if (this.isApplyingRemoteUpdate) return;
+
+    try {
+      this.isApplyingRemoteUpdate = true;
+      debugLog('Detected remote state change');
+
+      // Convert serialized state back to Maps/Sets
+      const parsedState = objectToMapSet(newState);
+
+      // Update Vuex store without triggering local sync
+      store.replaceState({
+        ...store.state,
+        ...parsedState
+      });
+
+      debugLog('Store updated from remote');
+    } catch (error) {
+      logError(error, 'Remote state update failed');
+    } finally {
+      this.isApplyingRemoteUpdate = false;
+    }
+  }
+
+  /**
    * Creates the Vuex plugin
    * @returns {Function} Plugin installation function
    */
@@ -329,6 +378,10 @@ class TeraSyncPlugin {
         setTeraReady: async () => {
           validateVueInstance(this.vueInstance)
           this.teraReady = true
+
+          // Initialize remote watcher
+          await this.setupRemoteWatcher(store);
+
           await this.syncState(store)
         },
 
@@ -346,6 +399,9 @@ class TeraSyncPlugin {
          */
         destroy: () => {
           clearTimeout(syncTimeout)
+          if (this.teraStateWatcher) {
+            this.teraStateWatcher(); // Cleanup Vue watcher
+          }
           this.initialized = false
           this.teraReady = false
         }
