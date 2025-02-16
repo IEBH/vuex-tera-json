@@ -221,8 +221,8 @@ class TeraSyncPlugin {
       if (
         !this.vueInstance ||
         !this.vueInstance.$tera ||
-        !this.vueInstance.$tera.state ||
-        !this.vueInstance.$tera.state.temp
+        !this.vueInstance.$tera.project ||
+        !this.vueInstance.$tera.project.temp
       ) {
         return null;
       }
@@ -230,13 +230,13 @@ class TeraSyncPlugin {
       const userKey = await this.getStorageKey()
       const legacyKey = this.config.keyPrefix
 
-      const hasUserData = this.vueInstance.$tera.state.temp[userKey]
+      const hasUserData = this.vueInstance.$tera.project.temp[userKey]
       if (hasUserData) {
         debugLog('User-specific data found')
         return hasUserData
       }
 
-      const legacyData = this.vueInstance.$tera.state.temp[legacyKey]
+      const legacyData = this.vueInstance.$tera.project.temp[legacyKey]
       if (legacyData) {
         debugLog('Migrating legacy data')
         await this.vueInstance.$tera.setProjectState(`temp.${userKey}`, legacyData)
@@ -268,14 +268,14 @@ class TeraSyncPlugin {
         return
       }
 
-      if (!this.vueInstance.$tera.state.temp) {
-        this.vueInstance.$tera.state.temp = {}
+      if (!this.vueInstance.$tera.project.temp) {
+        this.vueInstance.$tera.project.temp = {}
       }
 
       if (!this.initialized) {
         const existingData = this.config.isSeparateStateForEachUser
           ? await this.checkAndMigrateLegacyData()
-          : await this.vueInstance.$tera.state.temp[await this.getStorageKey()]
+          : await this.vueInstance.$tera.project.temp[await this.getStorageKey()]
 
         if (existingData) {
           const parsedState = objectToMapSet(existingData)
@@ -312,7 +312,7 @@ class TeraSyncPlugin {
 
       // Watch for changes to the TERA state
       this.teraStateWatcher = this.vueInstance.$watch(
-        () => this.vueInstance.$tera.state.temp[storageKey],
+        () => this.vueInstance.$tera.project.temp[storageKey],
         (newState) => {
           if (newState && this.teraReady) {
             this.handleRemoteChange(store, newState);
