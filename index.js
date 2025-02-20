@@ -430,4 +430,4 @@ const createSyncPlugin = (keyPrefix, isSeparateStateForEachUser = false, options
   return plugin.createPlugin()
 }
 
-module.exports = { createSyncPlugin }
+export { createSyncPlugin };

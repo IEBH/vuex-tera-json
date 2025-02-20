@@ -1,11 +1,11 @@
-# vuex-tera-sync
+# vuex-tera-json
 
 A Vuex plugin for syncing state with Tera.
 
 ## Installation
 
 ```bash
-npm install @iebh/vuex-tera-sync
+npm install @iebh/vuex-tera-json
 ```
 
 ## Usage
@@ -19,7 +19,7 @@ In your Vuex store configuration file (e.g. `store.js`), create and export the s
 ```javascript
 import Vue from 'vue'
 import Vuex from 'vuex'
-import { createSyncPlugin } from '@iebh/vuex-tera-sync';
+import { createSyncPlugin } from '@iebh/vuex-tera-json';
 
 Vue.use(Vuex)
 
