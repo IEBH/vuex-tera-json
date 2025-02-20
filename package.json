@@ -1,10 +1,10 @@
 {
-  "name": "@iebh/vuex-tera-sync",
-  "version": "2.0.4",
+  "name": "@iebh/vuex-tera-json",
+  "version": "1.0.0",
   "publishConfig": {
     "access": "public"
   },
-  "description": "A Vuex plugin for syncing state with Tera",
+  "description": "A Vuex plugin for syncing state with Tera (using JSON files)",
   "main": "index.js",
   "types": "index.d.ts",
   "scripts": {
@@ -28,5 +28,8 @@
     "@vue/eslint-config-standard": "^8.0.1",
     "eslint": "^8.57.0",
     "eslint-plugin-vue": "^9.26.0"
+  },
+  "dependencies": {
+    "nanoid": "^5.1.0"
   }
 }

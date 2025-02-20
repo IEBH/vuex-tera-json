@@ -1,3 +1,5 @@
+import {nanoid} from 'nanoid';
+
 /**
  * @constant {boolean}
  * @description Debug mode flag for logging
@@ -6,9 +8,9 @@ const DEBUG = false
 
 /**
  * @typedef {Object} TeraPluginConfig
- * @property {string} keyPrefix - Prefix for storage keys
+ * @property {string} keyPrefix - Prefix for storage keys and filenames
  * @property {boolean} isSeparateStateForEachUser - Whether to maintain separate state for each user
- * @property {number} debounceMs - Debounce timeout in milliseconds for state sync
+ * @property {number} autoSaveIntervalMinutes - Auto-save interval in minutes (0 to disable)
  */
 
 /**
@@ -18,7 +20,7 @@ const DEBUG = false
 const DEFAULT_CONFIG = {
   keyPrefix: '',
   isSeparateStateForEachUser: false,
-  debounceMs: 100
+  autoSaveIntervalMinutes: 10
 }
 
 /**
@@ -26,7 +28,7 @@ const DEFAULT_CONFIG = {
  * @param {...*} args - Arguments to log
  */
 const debugLog = (...args) => {
-  if (DEBUG) console.log('[TERA Sync]:', ...args)
+  if (DEBUG) console.log('[TERA File Sync]:', ...args)
 }
 
 /**
@@ -35,7 +37,7 @@ const debugLog = (...args) => {
  * @param {string} context - Context description for the error
  */
 const logError = (error, context) => {
-  console.error(`[TERA Sync] ${context}:`, error)
+  console.error(`[TERA File Sync] ${context}:`, error)
 }
 
 /**
@@ -52,8 +54,8 @@ const validateConfig = (config) => {
     throw new Error('isSeparateStateForEachUser must be a boolean')
   }
 
-  if (typeof config.debounceMs !== 'number' || config.debounceMs < 0) {
-    throw new Error('debounceMs must be a non-negative number')
+  if (typeof config.autoSaveIntervalMinutes !== 'number' || config.autoSaveIntervalMinutes < 0) {
+    throw new Error('autoSaveIntervalMinutes must be a non-negative number')
   }
 }
 
@@ -75,8 +77,12 @@ const validateVueInstance = (instance) => {
     throw new Error('$tera.getUser must be a function')
   }
 
-  if (typeof instance.$tera.setProjectState !== 'function') {
-    throw new Error('$tera.setProjectState must be a function')
+  if (typeof instance.$tera.getProjectFileContents !== 'function') {
+    throw new Error('$tera.getProjectFileContents must be a function')
+  }
+
+  if (typeof instance.$tera.setProjectFileContents !== 'function') {
+    throw new Error('$tera.setProjectFileContents must be a function')
   }
 }
 
@@ -166,10 +172,10 @@ const objectToMapSet = (obj) => {
 }
 
 /**
- * @class TeraSyncPlugin
- * @description Plugin class for syncing Vuex store state with TERA
+ * @class TeraFileSyncPlugin
+ * @description Plugin class for syncing Vuex store state with TERA JSON files
  */
-class TeraSyncPlugin {
+class TeraFileSyncPlugin {
   /**
    * @constructor
    * @param {TeraPluginConfig} [config=DEFAULT_CONFIG] - Plugin configuration
@@ -184,14 +190,15 @@ class TeraSyncPlugin {
     this.teraReady = false
     this.vueInstance = null
     this.userId = null
-    this.syncInProgress = false
-    this.pendingSync = false
+    this.saveInProgress = false
+    this.autoSaveInterval = null
+    this.store = null
   }
 
   /**
-   * Gets the storage key for the current user
+   * Gets the storage file name for the current user
    * @async
-   * @returns {Promise<string>} The storage key
+   * @returns {Promise<string>} The storage file name
    * @throws {Error} If unable to get user ID when separate state is enabled
    */
   async getStorageKey() {
@@ -208,148 +215,141 @@ class TeraSyncPlugin {
       }
       return `${this.config.keyPrefix}-${this.userId}`
     }
-    return this.config.keyPrefix
+    return `${this.config.keyPrefix}`
   }
 
   /**
-   * Checks for and migrates legacy data
+   * Gets the storage file name for the current user
    * @async
-   * @returns {Promise<Object|null>} Legacy data if found, null otherwise
+   * @returns {Promise<string>} The storage file name
+   * @throws {Error} If unable to get user ID when separate state is enabled
    */
-  async checkAndMigrateLegacyData() {
+  async getStorageFileName() {
+    if (!this.vueInstance || !this.vueInstance.$tera || !this.vueInstance.$tera.project || !this.vueInstance.$tera.project.temp) {
+      console.warn("Error getting fileStorageName: something missing");
+      return;
+    }
+    const key = await this.getStorageKey();
+    let fileStorageName = this.vueInstance.$tera.project.temp[key];
+    if (!fileStorageName) {
+      debugLog("No existing file for project/tool, creating one");
+      fileStorageName = `data-${this.config.keyPrefix}-${nanoid()}.json`
+      this.vueInstance.$tera.createProjectFile(fileStorageName)
+      return;
+    }
+    return fileStorageName;
+  }
+
+  /**
+   * Loads state from JSON file
+   * @async
+   * @returns {Promise<Object|null>} The loaded state or null if file not found
+   */
+  async loadStateFromFile() {
     try {
-      if (
-        !this.vueInstance ||
-        !this.vueInstance.$tera ||
-        !this.vueInstance.$tera.project ||
-        !this.vueInstance.$tera.project.temp
-      ) {
-        return null;
+      const fileName = await this.getStorageFileName()
+      debugLog(`Loading state from file: ${fileName}`)
+
+      const fileContent = await this.vueInstance.$tera.getProjectFileContents(fileName)
+      if (!fileContent) {
+        debugLog('File not found or empty')
+        return null
       }
 
-      const userKey = await this.getStorageKey()
-      const legacyKey = this.config.keyPrefix
-
-      const hasUserData = this.vueInstance.$tera.project.temp[userKey]
-      if (hasUserData) {
-        debugLog('User-specific data found')
-        return hasUserData
-      }
-
-      const legacyData = this.vueInstance.$tera.project.temp[legacyKey]
-      if (legacyData) {
-        debugLog('Migrating legacy data')
-        await this.vueInstance.$tera.setProjectState(`temp.${userKey}`, legacyData)
-        return legacyData
-      }
-
-      return null
+      const parsedContent = JSON.parse(fileContent)
+      debugLog('State loaded from file successfully')
+      return parsedContent
     } catch (error) {
-      logError(error, 'Legacy data migration failed')
+      if (error.message && error.message.includes('not found')) {
+        debugLog('State file not found, will be created on first save')
+        return null
+      }
+      logError(error, 'Failed to load state from file')
       return null
     }
   }
 
   /**
-   * Syncs the Vuex store state with TERA
+   * Saves state to JSON file
+   * @async
+   * @param {Object} state - The state to save
+   * @returns {Promise<boolean>} Whether the save was successful
+   */
+  async saveStateToFile(state) {
+    if (this.saveInProgress) {
+      debugLog('Save already in progress, skipping')
+      return false
+    }
+
+    try {
+      this.saveInProgress = true
+      const fileName = await this.getStorageFileName()
+      const stateToSave = mapSetToObject(state)
+      const fileContent = JSON.stringify(stateToSave, null, 2)
+
+      await this.vueInstance.$tera.setProjectFileContents(fileName, fileContent)
+      debugLog(`State saved to file: ${fileName}`)
+      return true
+    } catch (error) {
+      logError(error, 'Failed to save state to file')
+      return false
+    } finally {
+      this.saveInProgress = false
+    }
+  }
+
+  /**
+   * Initializes the store state from file or legacy data
    * @async
    * @param {Object} store - Vuex store instance
    */
-  async syncState(store) {
-    if (this.syncInProgress || this.isApplyingRemoteUpdate) {
-      this.pendingSync = true;
-      return;
+  async initializeState(store) {
+    if (!this.teraReady || !this.vueInstance) {
+      debugLog('TERA not ready, skipping initialization')
+      return
     }
 
     try {
-      this.syncInProgress = true
-
-      if (!this.teraReady || !this.vueInstance) {
-        return
+      // Try to load from file
+      const fileData = await this.loadStateFromFile()
+      if (fileData) {
+        const parsedState = objectToMapSet(fileData)
+        store.replaceState({
+          ...store.state,
+          ...parsedState
+        })
+        debugLog('Store initialized from file data')
+      } else {
+        debugLog('No existing data found, using default store state')
       }
 
-      if (!this.vueInstance.$tera.project.temp) {
-        this.vueInstance.$tera.project.temp = {}
-      }
-
-      if (!this.initialized) {
-        const existingData = this.config.isSeparateStateForEachUser
-          ? await this.checkAndMigrateLegacyData()
-          : await this.vueInstance.$tera.project.temp[await this.getStorageKey()]
-
-        if (existingData) {
-          const parsedState = objectToMapSet(existingData)
-          store.replaceState({
-            ...store.state,
-            ...parsedState
-          })
-          debugLog('Store initialized from existing data')
-        }
-        this.initialized = true
-      }
-
-      const stateToSave = mapSetToObject(store.state)
-      await this.vueInstance.$tera.setProjectState(`temp.${await this.getStorageKey()}`, stateToSave)
-      debugLog('State synced to TERA')
-
+      this.initialized = true
     } catch (error) {
-      logError(error, 'State sync failed')
-    } finally {
-      this.syncInProgress = false
-      if (this.pendingSync) {
-        this.pendingSync = false
-        this.syncState(store)
-      }
+      logError(error, 'State initialization failed')
     }
   }
 
   /**
-   * Sets up a watcher for remote TERA state changes
+   * Sets up automatic saving on a timer
    */
-  async setupRemoteWatcher(store) {
-    try {
-      const storageKey = await this.getStorageKey();
-
-      // Watch for changes to the TERA state
-      this.teraStateWatcher = this.vueInstance.$watch(
-        () => this.vueInstance.$tera.project.temp[storageKey],
-        (newState) => {
-          if (newState && this.teraReady) {
-            this.handleRemoteChange(store, newState);
-          }
-        },
-        { deep: true, immediate: true }
-      );
-    } catch (error) {
-      logError(error, 'Failed to setup remote watcher');
+  setupAutoSave() {
+    if (this.config.autoSaveIntervalMinutes <= 0) {
+      debugLog('Auto-save disabled')
+      return
     }
-  }
 
-  /**
-   * Handles remote state changes from TERA
-   */
-  handleRemoteChange(store, newState) {
-    if (this.isApplyingRemoteUpdate) return;
-
-    try {
-      this.isApplyingRemoteUpdate = true;
-      debugLog('Detected remote state change');
-
-      // Convert serialized state back to Maps/Sets
-      const parsedState = objectToMapSet(newState);
-
-      // Update Vuex store without triggering local sync
-      store.replaceState({
-        ...store.state,
-        ...parsedState
-      });
-
-      debugLog('Store updated from remote');
-    } catch (error) {
-      logError(error, 'Remote state update failed');
-    } finally {
-      this.isApplyingRemoteUpdate = false;
+    // Clear any existing interval
+    if (this.autoSaveInterval) {
+      clearInterval(this.autoSaveInterval)
     }
+
+    const intervalMs = this.config.autoSaveIntervalMinutes * 60 * 1000
+    debugLog(`Setting up auto-save every ${this.config.autoSaveIntervalMinutes} minutes`)
+
+    this.autoSaveInterval = setInterval(() => {
+      debugLog('Auto-save triggered')
+      this.saveStateToFile(this.store.state)
+    }, intervalMs)
   }
 
   /**
@@ -358,31 +358,18 @@ class TeraSyncPlugin {
    */
   createPlugin() {
     return (store) => {
-      // Debounced store subscription
-      let syncTimeout = null
-      store.subscribe(() => {
-        if (this.teraReady) {
-          clearTimeout(syncTimeout)
-          syncTimeout = setTimeout(
-            () => this.syncState(store),
-            this.config.debounceMs
-          )
-        }
-      })
+      this.store = store
 
       return {
         /**
-         * Sets the TERA ready state and triggers initial sync
+         * Sets the TERA ready state and triggers initial load
          * @async
          */
         setTeraReady: async () => {
           validateVueInstance(this.vueInstance)
           this.teraReady = true
-
-          // Initialize remote watcher
-          await this.setupRemoteWatcher(store);
-
-          await this.syncState(store)
+          await this.initializeState(store)
+          this.setupAutoSave()
         },
 
         /**
@@ -395,12 +382,20 @@ class TeraSyncPlugin {
         },
 
         /**
+         * Manually saves the current state to file
+         * @async
+         * @returns {Promise<boolean>} Whether the save was successful
+         */
+        saveState: async () => {
+          return await this.saveStateToFile(store.state)
+        },
+
+        /**
          * Cleans up the plugin
          */
         destroy: () => {
-          clearTimeout(syncTimeout)
-          if (this.teraStateWatcher) {
-            this.teraStateWatcher(); // Cleanup Vue watcher
+          if (this.autoSaveInterval) {
+            clearInterval(this.autoSaveInterval)
           }
           this.initialized = false
           this.teraReady = false
@@ -411,11 +406,11 @@ class TeraSyncPlugin {
 }
 
 /**
- * Creates a new TERA sync plugin instance
- * @param {string} keyPrefix - Prefix for storage keys
+ * Creates a new TERA file sync plugin instance
+ * @param {string} keyPrefix - Prefix for storage keys and filenames
  * @param {boolean} [isSeparateStateForEachUser=false] - Whether to maintain separate state for each user
  * @param {Object} [options={}] - Additional plugin options
- * @param {number} [options.debounceMs=100] - Debounce timeout in milliseconds
+ * @param {number} [options.autoSaveIntervalMinutes=10] - Auto-save interval in minutes (0 to disable)
  * @returns {Function} Plugin installation function
  * @throws {Error} If parameters are invalid
  */
@@ -430,7 +425,7 @@ const createSyncPlugin = (keyPrefix, isSeparateStateForEachUser = false, options
     ...options
   }
 
-  const plugin = new TeraSyncPlugin(config)
+  const plugin = new TeraFileSyncPlugin(config)
   return plugin.createPlugin()
 }
 
