@@ -234,7 +234,8 @@ class TeraFileSyncPlugin {
     if (!fileStorageName) {
       debugLog("No existing file for project/tool, creating one");
       fileStorageName = `data-${this.config.keyPrefix}-${nanoid()}.json`
-      this.vueInstance.$tera.createProjectFile(fileStorageName)
+      await this.vueInstance.$tera.createProjectFile(fileStorageName)
+      this.vueInstance.$tera.project.temp[key] = fileStorageName
       return;
     }
     return fileStorageName;
