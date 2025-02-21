@@ -355,6 +355,9 @@ class TeraFileSyncPlugin {
     }
     if (!this.vueInstance.$tera.project.temp) {
       console.warn("Error getting fileStorageName: $tera.project.temp missing:", this.vueInstance.$tera.project);
+      console.warn("Creating $tera.project.temp...");
+      // TODO: Work out if setProjectState is better
+      this.vueInstance.$tera.project.temp = {}
       return;
     }
     if (!this.vueInstance.$tera.project.id) {
@@ -366,8 +369,8 @@ class TeraFileSyncPlugin {
     if (!fileStorageName) {
       debugLog("No existing file for project/tool, creating one");
       fileStorageName = `data-${this.config.keyPrefix}-${nanoid()}.json`
-      await this.vueInstance.$tera.createProjectFile(fileStorageName)
-      this.vueInstance.$tera.project.temp[key] = fileStorageName
+      await this.vueInstance.$tera.createProjectFile(fileStorageName);
+      this.vueInstance.$tera.setProjectState(`temp.${await this.getStorageKey()}`, fileStorageName);
       return;
     }
     if (typeof fileStorageName !== 'string') {
@@ -530,7 +533,7 @@ class TeraFileSyncPlugin {
    */
   setupStateChangeTracking(store) {
     // Subscribe to store mutations to track changes
-    store.subscribe((mutation, state) => {
+    store.subscribe((mutation) => {
       // Ignore our own save status mutations
       if (mutation.type === '__tera_file_sync/updateSaveStatus') return;
 
