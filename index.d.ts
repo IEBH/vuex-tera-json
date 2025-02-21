@@ -1,13 +1,15 @@
-import { Store, Plugin } from 'vuex';
+import { Plugin } from 'vuex';
 
-declare function createSyncPlugin(key: string): Plugin<any>;
+interface TeraSyncPluginInstance {
+  setTeraReady(): void;
+  setVueInstance(instance: any): void;
+  saveState(): boolean;
+  destroy(): void;
+}
 
-declare function setVueInstance(instance: any): void;
-
-declare function setTeraReady(): void;
+declare function createSyncPlugin(key: string): Plugin<TeraSyncPluginInstance>;
 
 export {
   createSyncPlugin,
-  setVueInstance,
-  setTeraReady
+  TeraSyncPluginInstance
 };
