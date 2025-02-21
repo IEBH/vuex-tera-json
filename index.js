@@ -4,7 +4,7 @@ import {nanoid} from 'nanoid';
  * @constant {boolean}
  * @description Debug mode flag for logging
  */
-const DEBUG = false
+const DEBUG = true
 
 /**
  * @typedef {Object} TeraPluginConfig
@@ -225,8 +225,16 @@ class TeraFileSyncPlugin {
    * @throws {Error} If unable to get user ID when separate state is enabled
    */
   async getStorageFileName() {
-    if (!this.vueInstance || !this.vueInstance.$tera || !this.vueInstance.$tera.project || !this.vueInstance.$tera.project.temp) {
-      console.warn("Error getting fileStorageName: something missing");
+    if (!this.vueInstance || !this.vueInstance.$tera || !this.vueInstance.$tera.project) {
+      console.warn("Error getting fileStorageName: vueInstance, $tera or $tera.project missing:", this.vueInstance.$tera);
+      return;
+    }
+    if (!this.vueInstance.$tera.project.temp) {
+      console.warn("Error getting fileStorageName: $tera.project.temp missing:", this.vueInstance.$tera.project);
+      return;
+    }
+    if (!this.vueInstance.$tera.project.id) {
+      console.warn("Error getting fileStorageName: $tera.project.id missing:", this.vueInstance.$tera.project);
       return;
     }
     const key = await this.getStorageKey();
@@ -238,7 +246,11 @@ class TeraFileSyncPlugin {
       this.vueInstance.$tera.project.temp[key] = fileStorageName
       return;
     }
-    return fileStorageName;
+    if (typeof fileStorageName !== 'string') {
+      throw new Error(`fileStorageName is not a string: ${fileStorageName}`);
+    }
+    const fullFileStoragePath = `${this.vueInstance.$tera.project.id}/${fileStorageName}`
+    return fullFileStoragePath;
   }
 
   /**
@@ -251,15 +263,21 @@ class TeraFileSyncPlugin {
       const fileName = await this.getStorageFileName()
       debugLog(`Loading state from file: ${fileName}`)
 
-      const fileContent = await this.vueInstance.$tera.getProjectFileContents(fileName)
+      if (!fileName) {
+        debugLog('No file name returned!');
+        return null;
+      }
+
+      const encodedFileName = btoa(fileName);
+
+      const fileContent = await this.vueInstance.$tera.getProjectFileContents(encodedFileName, { format: 'json' })
       if (!fileContent) {
         debugLog('File not found or empty')
         return null
       }
 
-      const parsedContent = JSON.parse(fileContent)
-      debugLog('State loaded from file successfully')
-      return parsedContent
+      debugLog('State loaded from file successfully:', fileContent)
+      return fileContent
     } catch (error) {
       if (error.message && error.message.includes('not found')) {
         debugLog('State file not found, will be created on first save')
@@ -285,10 +303,16 @@ class TeraFileSyncPlugin {
     try {
       this.saveInProgress = true
       const fileName = await this.getStorageFileName()
-      const stateToSave = mapSetToObject(state)
-      const fileContent = JSON.stringify(stateToSave, null, 2)
 
-      await this.vueInstance.$tera.setProjectFileContents(fileName, fileContent)
+      if (!fileName) {
+        throw new Error('No fileName returned')
+      }
+
+      const encodedFileName = btoa(fileName);
+
+      const stateToSave = mapSetToObject(state)
+
+      await this.vueInstance.$tera.setProjectFileContents(encodedFileName, stateToSave)
       debugLog(`State saved to file: ${fileName}`)
       return true
     } catch (error) {
@@ -370,7 +394,8 @@ class TeraFileSyncPlugin {
           validateVueInstance(this.vueInstance)
           this.teraReady = true
           await this.initializeState(store)
-          this.setupAutoSave()
+          // TODO: Enable autosave
+          // this.setupAutoSave()
         },
 
         /**
