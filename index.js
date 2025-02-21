@@ -28,6 +28,16 @@ const DEFAULT_CONFIG = {
 }
 
 /**
+ * @enum {string}
+ * @description Save status states
+ */
+const SAVE_STATUS = {
+  SAVED: 'Saved',
+  UNSAVED: 'Unsaved changes',
+  SAVING: 'Saving...'
+}
+
+/**
  * Debug logging utility function
  * @param {...*} args - Arguments to log
  */
@@ -219,6 +229,7 @@ class TeraFileSyncPlugin {
     this.store = null
     this.keydownHandler = this.handleKeyDown.bind(this)
     this.hasShownInitialAlert = false
+    this.saveStatus = SAVE_STATUS.SAVED
   }
 
   /**
@@ -237,8 +248,6 @@ class TeraFileSyncPlugin {
       })
     }
   }
-
-
 
   /**
    * Register the keyboard event listener for hotkeys
@@ -294,6 +303,20 @@ class TeraFileSyncPlugin {
 
       debugLog('Showed initial manual save alert');
     }
+  }
+
+  /**
+   * Updates the save status in the store
+   * @param {string} status - The new save status
+   */
+  updateSaveStatus(status) {
+    if (!this.store) return;
+
+    debugLog(`Updating save status: ${status}`);
+    this.saveStatus = status;
+
+    // Commit the status to the store
+    this.store.commit('__tera_file_sync/updateSaveStatus', status);
   }
 
   /**
@@ -377,6 +400,9 @@ class TeraFileSyncPlugin {
         return null
       }
 
+      // Update last saved state for change tracking
+      this.updateSaveStatus(SAVE_STATUS.SAVED);
+
       debugLog('State loaded from file successfully:', fileContent)
       return fileContent
     } catch (error) {
@@ -403,6 +429,8 @@ class TeraFileSyncPlugin {
 
     try {
       this.saveInProgress = true
+      this.updateSaveStatus(SAVE_STATUS.SAVING);
+
       const fileName = await this.getStorageFileName()
 
       if (!fileName) {
@@ -414,10 +442,15 @@ class TeraFileSyncPlugin {
       const stateToSave = mapSetToObject(state)
 
       await this.vueInstance.$tera.setProjectFileContents(encodedFileName, stateToSave, {format: 'json'})
+
+      // Update last saved state reference after successful save
+      this.updateSaveStatus(SAVE_STATUS.SAVED);
+
       debugLog(`State saved to file: ${fileName}`)
       return true
     } catch (error) {
       logError(error, 'Failed to save state to file')
+      this.updateSaveStatus(SAVE_STATUS.UNSAVED);
       return false
     } finally {
       this.saveInProgress = false
@@ -445,8 +478,10 @@ class TeraFileSyncPlugin {
           ...parsedState
         })
         debugLog('Store initialized from file data')
+        this.updateSaveStatus(SAVE_STATUS.SAVED);
       } else {
         debugLog('No existing data found, using default store state')
+        this.updateSaveStatus(SAVE_STATUS.UNSAVED);
       }
 
       this.initialized = true
@@ -480,9 +515,29 @@ class TeraFileSyncPlugin {
     debugLog(`Setting up auto-save every ${this.config.autoSaveIntervalMinutes} minutes`)
 
     this.autoSaveInterval = setInterval(() => {
-      debugLog('Auto-save triggered')
-      this.saveStateToFile(this.store.state)
+      if (this.saveStatus !== SAVE_STATUS.SAVED) {
+        debugLog('Auto-save triggered')
+        this.saveStateToFile(this.store.state)
+      } else {
+        debugLog('Auto-save skipped - no changes detected')
+      }
     }, intervalMs)
+  }
+
+  /**
+   * Sets up state change tracking
+   * @param {Object} store - Vuex store instance
+   */
+  setupStateChangeTracking(store) {
+    // Subscribe to store mutations to track changes
+    store.subscribe((mutation, state) => {
+      // Ignore our own save status mutations
+      if (mutation.type === '__tera_file_sync/updateSaveStatus') return;
+
+      if (this.saveStatus !== SAVE_STATUS.SAVING ) {
+        this.updateSaveStatus(SAVE_STATUS.UNSAVED);
+      }
+    });
   }
 
   /**
@@ -492,6 +547,25 @@ class TeraFileSyncPlugin {
   createPlugin() {
     return (store) => {
       this.store = store
+
+      // Register the module for save status
+      store.registerModule('__tera_file_sync', {
+        namespaced: true,
+        state: {
+          saveStatus: SAVE_STATUS.SAVED
+        },
+        mutations: {
+          updateSaveStatus(state, status) {
+            state.saveStatus = status;
+          }
+        },
+        getters: {
+          getSaveStatus: state => state.saveStatus
+        }
+      });
+
+      // Set up change tracking
+      this.setupStateChangeTracking(store);
 
       return {
         /**
@@ -525,6 +599,14 @@ class TeraFileSyncPlugin {
         },
 
         /**
+         * Gets the current save status
+         * @returns {string} The current save status
+         */
+        getSaveStatus: () => {
+          return this.saveStatus;
+        },
+
+        /**
          * Cleans up the plugin
          */
         destroy: () => {
@@ -533,6 +615,10 @@ class TeraFileSyncPlugin {
           }
           // Unregister hotkey listener
           this.unregisterHotkeys();
+          // Unregister store module if possible
+          if (store.hasModule('__tera_file_sync')) {
+            store.unregisterModule('__tera_file_sync');
+          }
           this.initialized = false
           this.teraReady = false
         }
