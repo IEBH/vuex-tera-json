@@ -11,6 +11,8 @@ const DEBUG = true
  * @property {string} keyPrefix - Prefix for storage keys and filenames
  * @property {boolean} isSeparateStateForEachUser - Whether to maintain separate state for each user
  * @property {number} autoSaveIntervalMinutes - Auto-save interval in minutes (0 to disable)
+ * @property {boolean} showInitialAlert - Whether to show initial alert about manual saving
+ * @property {boolean} enableSaveHotkey - Whether to enable Ctrl+S hotkey for saving
  */
 
 /**
@@ -20,7 +22,9 @@ const DEBUG = true
 const DEFAULT_CONFIG = {
   keyPrefix: '',
   isSeparateStateForEachUser: false,
-  autoSaveIntervalMinutes: 10
+  autoSaveIntervalMinutes: 10,
+  showInitialAlert: true,
+  enableSaveHotkey: true
 }
 
 /**
@@ -56,6 +60,14 @@ const validateConfig = (config) => {
 
   if (typeof config.autoSaveIntervalMinutes !== 'number' || config.autoSaveIntervalMinutes < 0) {
     throw new Error('autoSaveIntervalMinutes must be a non-negative number')
+  }
+
+  if (typeof config.showInitialAlert !== 'boolean') {
+    throw new Error('showInitialAlert must be a boolean')
+  }
+
+  if (typeof config.enableSaveHotkey !== 'boolean') {
+    throw new Error('enableSaveHotkey must be a boolean')
   }
 }
 
@@ -172,6 +184,18 @@ const objectToMapSet = (obj) => {
 }
 
 /**
+ * Shows an alert notification to the user
+ * @param {string} message - The message to display
+ */
+const showNotification = (message) => {
+  if (typeof window !== 'undefined' && window.alert) {
+    window.alert(message);
+  } else {
+    debugLog('Alert would be shown:', message);
+  }
+};
+
+/**
  * @class TeraFileSyncPlugin
  * @description Plugin class for syncing Vuex store state with TERA JSON files
  */
@@ -193,6 +217,83 @@ class TeraFileSyncPlugin {
     this.saveInProgress = false
     this.autoSaveInterval = null
     this.store = null
+    this.keydownHandler = this.handleKeyDown.bind(this)
+    this.hasShownInitialAlert = false
+  }
+
+  /**
+   * Handle keyboard events for the Ctrl+S hotkey
+   * @param {KeyboardEvent} event - The keyboard event
+   */
+  handleKeyDown(event) {
+    // Check for Ctrl+S (Windows/Linux) or Command+S (Mac)
+    if ((event.ctrlKey || event.metaKey) && event.key === 's') {
+      event.preventDefault(); // Prevent the browser's save dialog
+      debugLog('Ctrl+S hotkey detected, saving state');
+      this.saveStateToFile(this.store.state).then(success => {
+        if (success) {
+          debugLog('Save completed via hotkey');
+        }
+      })
+    }
+  }
+
+
+
+  /**
+   * Register the keyboard event listener for hotkeys
+   */
+  registerHotkeys() {
+    if (!this.config.enableSaveHotkey) {
+      debugLog('Save hotkey disabled in configuration');
+      return;
+    }
+
+    debugLog('Registering Ctrl+S hotkey');
+    if (typeof window !== 'undefined') {
+      // Remove any existing handler to prevent duplicates
+      window.removeEventListener('keydown', this.keydownHandler);
+      // Add the event listener
+      window.addEventListener('keydown', this.keydownHandler);
+    }
+  }
+
+  /**
+   * Remove the keyboard event listener
+   */
+  unregisterHotkeys() {
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('keydown', this.keydownHandler);
+      debugLog('Unregistered hotkeys');
+    }
+  }
+
+  /**
+   * Show initial alert about manual saving
+   */
+  showInitialAlert() {
+    if (this.config.showInitialAlert && !this.hasShownInitialAlert) {
+      this.hasShownInitialAlert = true;
+      const message = "This tool no longer automatically saves progress, please use Ctrl+S to save progress";
+
+      // Use Vue notification system if available
+      if (this.vueInstance && this.vueInstance.$notify) {
+        this.vueInstance.$notify({
+          title: 'Important',
+          message,
+          type: 'warning',
+          duration: 10000,
+          showClose: true
+        });
+      } else {
+        // Fallback to regular alert with a short delay to ensure it shows after UI loads
+        setTimeout(() => {
+          showNotification(message);
+        }, 1000);
+      }
+
+      debugLog('Showed initial manual save alert');
+    }
   }
 
   /**
@@ -312,7 +413,7 @@ class TeraFileSyncPlugin {
 
       const stateToSave = mapSetToObject(state)
 
-      await this.vueInstance.$tera.setProjectFileContents(encodedFileName, stateToSave)
+      await this.vueInstance.$tera.setProjectFileContents(encodedFileName, stateToSave, {format: 'json'})
       debugLog(`State saved to file: ${fileName}`)
       return true
     } catch (error) {
@@ -349,6 +450,13 @@ class TeraFileSyncPlugin {
       }
 
       this.initialized = true
+
+      // Show initial alert about manual saving
+      this.showInitialAlert();
+
+      // Register hotkeys
+      this.registerHotkeys();
+
     } catch (error) {
       logError(error, 'State initialization failed')
     }
@@ -394,8 +502,8 @@ class TeraFileSyncPlugin {
           validateVueInstance(this.vueInstance)
           this.teraReady = true
           await this.initializeState(store)
-          // TODO: Enable autosave
-          // this.setupAutoSave()
+          // Enable autosave
+          this.setupAutoSave()
         },
 
         /**
@@ -423,6 +531,8 @@ class TeraFileSyncPlugin {
           if (this.autoSaveInterval) {
             clearInterval(this.autoSaveInterval)
           }
+          // Unregister hotkey listener
+          this.unregisterHotkeys();
           this.initialized = false
           this.teraReady = false
         }
@@ -437,6 +547,8 @@ class TeraFileSyncPlugin {
  * @param {boolean} [isSeparateStateForEachUser=false] - Whether to maintain separate state for each user
  * @param {Object} [options={}] - Additional plugin options
  * @param {number} [options.autoSaveIntervalMinutes=10] - Auto-save interval in minutes (0 to disable)
+ * @param {boolean} [options.showInitialAlert=true] - Whether to show initial alert about manual saving
+ * @param {boolean} [options.enableSaveHotkey=true] - Whether to enable Ctrl+S hotkey for saving
  * @returns {Function} Plugin installation function
  * @throws {Error} If parameters are invalid
  */
@@ -453,6 +565,6 @@ const createSyncPlugin = (keyPrefix, isSeparateStateForEachUser = false, options
 
   const plugin = new TeraFileSyncPlugin(config)
   return plugin.createPlugin()
-}
+};
 
 export { createSyncPlugin };
