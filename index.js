@@ -371,7 +371,6 @@ class TeraFileSyncPlugin {
       fileStorageName = `data-${this.config.keyPrefix}-${nanoid()}.json`
       await this.vueInstance.$tera.createProjectFile(fileStorageName);
       this.vueInstance.$tera.setProjectState(`temp.${await this.getStorageKey()}`, fileStorageName);
-      return;
     }
     if (typeof fileStorageName !== 'string') {
       throw new Error(`fileStorageName is not a string: ${fileStorageName}`);
@@ -391,7 +390,7 @@ class TeraFileSyncPlugin {
       debugLog(`Loading state from file: ${fileName}`)
 
       if (!fileName) {
-        debugLog('No file name returned!');
+        console.warning('No file name returned when expected!');
         return null;
       }
 
@@ -466,9 +465,16 @@ class TeraFileSyncPlugin {
    * @param {Object} store - Vuex store instance
    */
   async initializeState(store) {
-    if (!this.teraReady || !this.vueInstance) {
+    if (!this.teraReady || !this.vueInstance || !this.vueInstance.$tera) {
       debugLog('TERA not ready, skipping initialization')
       return
+    }
+
+    // Show loading
+    if (typeof this.vueInstance.$tera.uiProgress !== 'function') {
+      console.warn('Not showing loading because uiProgress is not a function')
+    } else {
+      await this.vueInstance.$tera.uiProgress({ title: 'Loading tool data' })
     }
 
     try {
@@ -488,6 +494,10 @@ class TeraFileSyncPlugin {
       }
 
       this.initialized = true
+      // Hide loading
+      if (typeof this.vueInstance.$tera.uiProgress === 'function') {
+        await this.vueInstance.$tera.uiProgress(false)
+      }
 
       // Show initial alert about manual saving
       this.showInitialAlert();
