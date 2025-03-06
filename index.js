@@ -106,6 +106,10 @@ const validateVueInstance = (instance) => {
   if (typeof instance.$tera.setProjectFileContents !== 'function') {
     throw new Error('$tera.setProjectFileContents must be a function')
   }
+
+  if (typeof instance.$tera.uiProgress !== 'function') {
+    throw new Error('$tera.uiProgress must be a function')
+  }
 }
 
 /**
@@ -433,6 +437,9 @@ class TeraFileSyncPlugin {
       this.saveInProgress = true
       this.updateSaveStatus(SAVE_STATUS.SAVING);
 
+      // Show loading progress
+      await this.vueInstance.$tera.uiProgress({ title: 'Saving tool data', backdrop: 'static' });
+
       const fileName = await this.getStorageFileName()
 
       if (!fileName) {
@@ -456,6 +463,8 @@ class TeraFileSyncPlugin {
       return false
     } finally {
       this.saveInProgress = false
+       // Hide loading progress
+      await this.vueInstance.$tera.uiProgress(false);
     }
   }
 
@@ -496,7 +505,6 @@ class TeraFileSyncPlugin {
       this.initialized = true
       // Hide loading
       if (typeof this.vueInstance.$tera.uiProgress === 'function') {
-        console.warn('HIUDING LOADING')
         await this.vueInstance.$tera.uiProgress(false)
       }
 
