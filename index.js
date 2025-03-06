@@ -234,6 +234,7 @@ class TeraFileSyncPlugin {
     this.keydownHandler = this.handleKeyDown.bind(this)
     this.hasShownInitialAlert = false
     this.saveStatus = SAVE_STATUS.SAVED
+    this.beforeUnloadHandler = this.handleBeforeUnload.bind(this); // Bind the handler
   }
 
   /**
@@ -252,6 +253,18 @@ class TeraFileSyncPlugin {
       })
     }
   }
+
+      /**
+     * Handles the beforeunload event to warn users about unsaved changes.
+     * @param {BeforeUnloadEvent} event - The beforeunload event.
+     */
+    handleBeforeUnload(event) {
+      if (this.saveStatus === SAVE_STATUS.UNSAVED) {
+        const message = 'You have unsaved changes. Are you sure you want to leave?';
+        event.returnValue = message; // Standard for most browsers
+        return message; // For some older browsers
+      }
+    }
 
   /**
    * Register the keyboard event listener for hotkeys
@@ -278,6 +291,26 @@ class TeraFileSyncPlugin {
     if (typeof window !== 'undefined') {
       window.removeEventListener('keydown', this.keydownHandler);
       debugLog('Unregistered hotkeys');
+    }
+  }
+
+    /**
+   * Registers the beforeunload event listener.
+   */
+  registerBeforeUnload() {
+    if (typeof window !== 'undefined') {
+      window.addEventListener('beforeunload', this.beforeUnloadHandler);
+      debugLog('Registered beforeunload listener');
+    }
+  }
+
+  /**
+   * Unregisters the beforeunload event listener.
+   */
+  unregisterBeforeUnload() {
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('beforeunload', this.beforeUnloadHandler);
+      debugLog('Unregistered beforeunload listener');
     }
   }
 
@@ -514,6 +547,9 @@ class TeraFileSyncPlugin {
       // Register hotkeys
       this.registerHotkeys();
 
+      // Register the beforeunload listener
+      this.registerBeforeUnload();
+
     } catch (error) {
       logError(error, 'State initialization failed')
     }
@@ -637,6 +673,8 @@ class TeraFileSyncPlugin {
           }
           // Unregister hotkey listener
           this.unregisterHotkeys();
+          // Unregister the beforeunload listener
+          this.unregisterBeforeUnload();
           // Unregister store module if possible
           if (store.hasModule('__tera_file_sync')) {
             store.unregisterModule('__tera_file_sync');
