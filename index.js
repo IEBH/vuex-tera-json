@@ -474,7 +474,7 @@ class TeraFileSyncPlugin {
     if (typeof this.vueInstance.$tera.uiProgress !== 'function') {
       console.warn('Not showing loading because uiProgress is not a function')
     } else {
-      await this.vueInstance.$tera.uiProgress({ title: 'Loading tool data' })
+      await this.vueInstance.$tera.uiProgress({ title: 'Loading tool data', backdrop: 'static' })
     }
 
     try {
@@ -496,6 +496,7 @@ class TeraFileSyncPlugin {
       this.initialized = true
       // Hide loading
       if (typeof this.vueInstance.$tera.uiProgress === 'function') {
+        console.warn('HIUDING LOADING')
         await this.vueInstance.$tera.uiProgress(false)
       }
 
