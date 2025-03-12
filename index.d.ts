@@ -5,6 +5,8 @@ import type { Store } from 'pinia';
  * Configuration options for the TERA sync plugin.
  */
 export interface TeraPluginConfig {
+  /** Prefix for storage keys and filenames. */
+  keyPrefix: string;
   /** Whether to maintain separate state for each user. */
   isSeparateStateForEachUser?: boolean;
   /** Auto-save interval in minutes (0 to disable). */
