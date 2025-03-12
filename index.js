@@ -1,36 +1,38 @@
 import {nanoid} from 'nanoid';
 
 /**
- * @constant {boolean}
- * @description Debug mode flag for logging
- */
+* @constant {boolean}
+* @description Debug mode flag for logging
+*/
 const DEBUG = true
 
 /**
- * @typedef {Object} TeraPluginConfig
- * @property {string} keyPrefix - Prefix for storage keys and filenames
- * @property {boolean} isSeparateStateForEachUser - Whether to maintain separate state for each user
- * @property {number} autoSaveIntervalMinutes - Auto-save interval in minutes (0 to disable)
- * @property {boolean} showInitialAlert - Whether to show initial alert about manual saving
- * @property {boolean} enableSaveHotkey - Whether to enable Ctrl+S hotkey for saving
- */
+* @typedef {Object} TeraPluginConfig
+* @property {string} keyPrefix - Prefix for storage keys and filenames
+* @property {boolean} isSeparateStateForEachUser - Whether to maintain separate state for each user
+* @property {number} autoSaveIntervalMinutes - Auto-save interval in minutes (0 to disable)
+* @property {boolean} showInitialAlert - Whether to show initial alert about manual saving
+* @property {boolean} enableSaveHotkey - Whether to enable Ctrl+S hotkey for saving
+* @property {'vuex'|'pinia'} storeType - The type of store being used ('vuex' or 'pinia')
+*/
 
 /**
- * @constant {TeraPluginConfig}
- * @description Default configuration for the TERA sync plugin
- */
+* @constant {TeraPluginConfig}
+* @description Default configuration for the TERA sync plugin
+*/
 const DEFAULT_CONFIG = {
   keyPrefix: '',
   isSeparateStateForEachUser: false,
   autoSaveIntervalMinutes: 10,
   showInitialAlert: true,
-  enableSaveHotkey: true
+  enableSaveHotkey: true,
+  storeType: 'vuex' // Default to Vuex for backward compatibility
 }
 
 /**
- * @enum {string}
- * @description Save status states
- */
+* @enum {string}
+* @description Save status states
+*/
 const SAVE_STATUS = {
   SAVED: 'Saved',
   UNSAVED: 'Unsaved changes',
@@ -38,27 +40,27 @@ const SAVE_STATUS = {
 }
 
 /**
- * Debug logging utility function
- * @param {...*} args - Arguments to log
- */
+* Debug logging utility function
+* @param {...*} args - Arguments to log
+*/
 const debugLog = (...args) => {
   if (DEBUG) console.log('[TERA File Sync]:', ...args)
-}
+  }
 
 /**
- * Error logging utility function
- * @param {Error} error - The error object
- * @param {string} context - Context description for the error
- */
+* Error logging utility function
+* @param {Error} error - The error object
+* @param {string} context - Context description for the error
+*/
 const logError = (error, context) => {
   console.error(`[TERA File Sync] ${context}:`, error)
 }
 
 /**
- * Validates the plugin configuration
- * @param {TeraPluginConfig} config - The configuration to validate
- * @throws {Error} If configuration is invalid
- */
+* Validates the plugin configuration
+* @param {TeraPluginConfig} config - The configuration to validate
+* @throws {Error} If configuration is invalid
+*/
 const validateConfig = (config) => {
   if (typeof config.keyPrefix !== 'string') {
     throw new Error('keyPrefix must be a string')
@@ -79,13 +81,17 @@ const validateConfig = (config) => {
   if (typeof config.enableSaveHotkey !== 'boolean') {
     throw new Error('enableSaveHotkey must be a boolean')
   }
+
+  if (config.storeType !== 'vuex' && config.storeType !== 'pinia') {
+    throw new Error('storeType must be either "vuex" or "pinia"')
+  }
 }
 
 /**
- * Validates the Vue instance has required TERA properties
- * @param {Object} instance - The Vue instance to validate
- * @throws {Error} If Vue instance is invalid
- */
+* Validates the Vue instance has required TERA properties
+* @param {Object} instance - The Vue instance to validate
+* @throws {Error} If Vue instance is invalid
+*/
 const validateVueInstance = (instance) => {
   if (!instance) {
     throw new Error('Vue instance is required')
@@ -113,10 +119,10 @@ const validateVueInstance = (instance) => {
 }
 
 /**
- * Converts Maps and Sets to plain objects and arrays for serialization
- * @param {*} item - The item to convert
- * @returns {*} The converted item
- */
+* Converts Maps and Sets to plain objects and arrays for serialization
+* @param {*} item - The item to convert
+* @returns {*} The converted item
+*/
 const mapSetToObject = (item) => {
   try {
     if (item instanceof Map) {
@@ -156,10 +162,10 @@ const mapSetToObject = (item) => {
 }
 
 /**
- * Converts serialized objects back to Maps and Sets
- * @param {*} obj - The object to convert
- * @returns {*} The converted object with Maps and Sets restored
- */
+* Converts serialized objects back to Maps and Sets
+* @param {*} obj - The object to convert
+* @returns {*} The converted object with Maps and Sets restored
+*/
 const objectToMapSet = (obj) => {
   try {
     if (!obj || typeof obj !== 'object' || obj instanceof Date) {
@@ -198,9 +204,9 @@ const objectToMapSet = (obj) => {
 }
 
 /**
- * Shows an alert notification to the user
- * @param {string} message - The message to display
- */
+* Shows an alert notification to the user
+* @param {string} message - The message to display
+*/
 const showNotification = (message) => {
   if (typeof window !== 'undefined' && window.alert) {
     window.alert(message);
@@ -210,15 +216,358 @@ const showNotification = (message) => {
 };
 
 /**
- * @class TeraFileSyncPlugin
- * @description Plugin class for syncing Vuex store state with TERA JSON files
- */
+* @class StoreAdapter
+* @description Abstract adapter for working with different store types
+*/
+class StoreAdapter {
+  /**
+  * @constructor
+  * @param {Object} store - The store instance
+  */
+  constructor(store) {
+    this.store = store;
+  }
+
+  /**
+  * Get the current state
+  * @returns {Object} The current state
+  */
+  getState() {
+    throw new Error('Method not implemented');
+  }
+
+  /**
+  * Replace the current state
+  * @param {Object} state - The new state
+  */
+  replaceState(state) {
+    throw new Error('Method not implemented');
+  }
+
+  /**
+  * Register a module with the store
+  * @param {string} name - Module name
+  * @param {Object} module - Module definition
+  */
+  registerModule(name, module) {
+    throw new Error('Method not implemented');
+  }
+
+  /**
+  * Unregister a module from the store
+  * @param {string} name - Module name
+  */
+  unregisterModule(name) {
+    throw new Error('Method not implemented');
+  }
+
+  /**
+  * Check if a module is registered
+  * @param {string} name - Module name
+  * @returns {boolean} Whether the module is registered
+  */
+  hasModule(name) {
+    throw new Error('Method not implemented');
+  }
+
+  /**
+  * Subscribe to state changes
+  * @param {Function} callback - Callback function
+  * @returns {Function} Unsubscribe function
+  */
+  subscribe(callback) {
+    throw new Error('Method not implemented');
+  }
+
+  /**
+  * Update save status
+  * @param {string} status - New save status
+  */
+  updateSaveStatus(status) {
+    throw new Error('Method not implemented');
+  }
+
+  /**
+  * Get current save status
+  * @returns {string} Current save status
+  */
+  getSaveStatus() {
+    throw new Error('Method not implemented');
+  }
+}
+
+/**
+* @class VuexAdapter
+* @extends StoreAdapter
+* @description Adapter for Vuex store
+*/
+class VuexAdapter extends StoreAdapter {
+  /**
+  * @constructor
+  * @param {Object} store - Vuex store instance
+  */
+  constructor(store) {
+    super(store);
+    this.registerSaveStatusModule();
+  }
+
+  /**
+  * Register the save status module
+  */
+  registerSaveStatusModule() {
+    this.store.registerModule('__tera_file_sync', {
+      namespaced: true,
+      state: {
+        saveStatus: SAVE_STATUS.SAVED
+      },
+      mutations: {
+        updateSaveStatus(state, status) {
+          state.saveStatus = status;
+        }
+      },
+      getters: {
+        getSaveStatus: state => state.saveStatus
+      }
+    });
+  }
+
+  /**
+  * Get the current state
+  * @returns {Object} The current state
+  */
+  getState() {
+    return this.store.state;
+  }
+
+  /**
+  * Replace the current state
+  * @param {Object} state - The new state
+  */
+  replaceState(state) {
+    this.store.replaceState({
+      ...this.store.state,
+      ...state
+    });
+  }
+
+  /**
+  * Register a module with the store
+  * @param {string} name - Module name
+  * @param {Object} module - Module definition
+  */
+  registerModule(name, module) {
+    this.store.registerModule(name, module);
+  }
+
+  /**
+  * Unregister a module from the store
+  * @param {string} name - Module name
+  */
+  unregisterModule(name) {
+    this.store.unregisterModule(name);
+  }
+
+  /**
+  * Check if a module is registered
+  * @param {string} name - Module name
+  * @returns {boolean} Whether the module is registered
+  */
+  hasModule(name) {
+    return this.store.hasModule(name);
+  }
+
+  /**
+  * Subscribe to state changes
+  * @param {Function} callback - Callback function
+  * @returns {Function} Unsubscribe function
+  */
+  subscribe(callback) {
+    return this.store.subscribe(callback);
+  }
+
+  /**
+  * Update save status
+  * @param {string} status - New save status
+  */
+  updateSaveStatus(status) {
+    this.store.commit('__tera_file_sync/updateSaveStatus', status);
+  }
+
+  /**
+  * Get current save status
+  * @returns {string} Current save status
+  */
+  getSaveStatus() {
+    if (this.store.state.__tera_file_sync) {
+      return this.store.state.__tera_file_sync.saveStatus
+    }
+    return SAVE_STATUS.UNSAVED;
+  }
+}
+
+/**
+* @class PiniaAdapter
+* @extends StoreAdapter
+* @description Adapter for Pinia store
+*/
+class PiniaAdapter extends StoreAdapter {
+  /**
+  * @constructor
+  * @param {Object} store - Pinia store instance
+  * @param {Function} defineStore - Pinia's defineStore function
+  */
+  constructor(store, defineStore) {
+    super(store);
+    this.defineStore = defineStore;
+    this.unsubscribers = [];
+    this.saveStatusStore = this.createSaveStatusStore();
+  }
+
+  /**
+  * Create a Pinia store for save status
+  * @returns {Object} Save status store
+  */
+  createSaveStatusStore() {
+    // Create a dedicated store for save status
+    const saveStatusStore = this.defineStore('__tera_file_sync', {
+      state: () => ({
+        saveStatus: SAVE_STATUS.SAVED
+      }),
+      actions: {
+        updateSaveStatus(status) {
+          this.saveStatus = status;
+        }
+      },
+      getters: {
+        getSaveStatus: state => state.saveStatus
+      }
+    });
+
+    // Return the store instance
+    return saveStatusStore();
+  }
+
+  /**
+  * Get the current state
+  * @returns {Object} The current state
+  */
+  getState() {
+    // For Pinia we need to extract state from each store
+    const state = {};
+
+    // Skip internal stores (like the save status store)
+    for (const storeId in this.store) {
+      if (storeId !== '__tera_file_sync') {
+        const storeInstance = this.store[storeId];
+        if (storeInstance && typeof storeInstance.$state === 'object') {
+          state[storeId] = { ...storeInstance.$state };
+        }
+      }
+    }
+
+    return state;
+  }
+
+  /**
+  * Replace the current state
+  * @param {Object} state - The new state
+  */
+  replaceState(state) {
+    // Update each store's state
+    for (const storeId in state) {
+      if (this.store[storeId] && typeof this.store[storeId].$state === 'object') {
+        // Use $patch to update the store's state
+        this.store[storeId].$patch(state[storeId]);
+      }
+    }
+  }
+
+  /**
+  * Register a module with the store
+  * @param {string} name - Module name
+  * @param {Object} module - Module definition
+  */
+  registerModule(name, module) {
+    // No direct equivalent in Pinia, this is handled by creation of stores
+    debugLog('registerModule not needed for Pinia, stores are defined independently');
+  }
+
+  /**
+  * Unregister a module from the store
+  * @param {string} name - Module name
+  */
+  unregisterModule(name) {
+    // No direct equivalent in Pinia
+    debugLog('unregisterModule not needed for Pinia');
+  }
+
+  /**
+  * Check if a module is registered
+  * @param {string} name - Module name
+  * @returns {boolean} Whether the module is registered
+  */
+  hasModule(name) {
+    return !!this.store[name];
+  }
+
+  /**
+  * Subscribe to state changes
+  * @param {Function} callback - Callback function
+  * @returns {Function} Unsubscribe function
+  */
+  subscribe(callback) {
+    // For Pinia, we need to subscribe to each store
+    for (const storeId in this.store) {
+      if (storeId !== '__tera_file_sync') {
+        const storeInstance = this.store[storeId];
+
+        if (storeInstance && typeof storeInstance.$subscribe === 'function') {
+          const unsubscribe = storeInstance.$subscribe((mutation, state) => {
+            callback({
+              type: `${storeId}/${mutation.type || 'unknown'}`,
+              payload: mutation.payload
+            });
+          });
+
+          this.unsubscribers.push(unsubscribe);
+        }
+      }
+    }
+
+    // Return a function to unsubscribe from all
+    return () => {
+      this.unsubscribers.forEach(unsubscribe => unsubscribe());
+      this.unsubscribers = [];
+    };
+  }
+
+  /**
+  * Update save status
+  * @param {string} status - New save status
+  */
+  updateSaveStatus(status) {
+    this.saveStatusStore.updateSaveStatus(status);
+  }
+
+  /**
+  * Get current save status
+  * @returns {string} Current save status
+  */
+  getSaveStatus() {
+    return this.saveStatusStore.getSaveStatus;
+  }
+}
+
+/**
+* @class TeraFileSyncPlugin
+* @description Plugin class for syncing store state with TERA JSON files
+*/
 class TeraFileSyncPlugin {
   /**
-   * @constructor
-   * @param {TeraPluginConfig} [config=DEFAULT_CONFIG] - Plugin configuration
-   * @throws {Error} If configuration is invalid
-   */
+  * @constructor
+  * @param {TeraPluginConfig} [config=DEFAULT_CONFIG] - Plugin configuration
+  * @throws {Error} If configuration is invalid
+  */
   constructor(config = DEFAULT_CONFIG) {
     const mergedConfig = { ...DEFAULT_CONFIG, ...config }
     validateConfig(mergedConfig)
@@ -230,23 +579,23 @@ class TeraFileSyncPlugin {
     this.userId = null
     this.saveInProgress = false
     this.autoSaveInterval = null
-    this.store = null
+    this.storeAdapter = null
     this.keydownHandler = this.handleKeyDown.bind(this)
     this.hasShownInitialAlert = false
     this.saveStatus = SAVE_STATUS.SAVED
-    this.beforeUnloadHandler = this.handleBeforeUnload.bind(this); // Bind the handler
+    this.beforeUnloadHandler = this.handleBeforeUnload.bind(this)
   }
 
   /**
-   * Handle keyboard events for the Ctrl+S hotkey
-   * @param {KeyboardEvent} event - The keyboard event
-   */
+  * Handle keyboard events for the Ctrl+S hotkey
+  * @param {KeyboardEvent} event - The keyboard event
+  */
   handleKeyDown(event) {
     // Check for Ctrl+S (Windows/Linux) or Command+S (Mac)
     if ((event.ctrlKey || event.metaKey) && event.key === 's') {
       event.preventDefault(); // Prevent the browser's save dialog
       debugLog('Ctrl+S hotkey detected, saving state');
-      this.saveStateToFile(this.store.state).then(success => {
+      this.saveStateToFile(this.storeAdapter.getState()).then(success => {
         if (success) {
           debugLog('Save completed via hotkey');
         }
@@ -254,21 +603,21 @@ class TeraFileSyncPlugin {
     }
   }
 
-      /**
-     * Handles the beforeunload event to warn users about unsaved changes.
-     * @param {BeforeUnloadEvent} event - The beforeunload event.
-     */
-    handleBeforeUnload(event) {
-      if (this.saveStatus === SAVE_STATUS.UNSAVED) {
-        const message = 'You have unsaved changes. Are you sure you want to leave?';
-        event.returnValue = message; // Standard for most browsers
-        return message; // For some older browsers
-      }
+  /**
+  * Handles the beforeunload event to warn users about unsaved changes.
+  * @param {BeforeUnloadEvent} event - The beforeunload event.
+  */
+  handleBeforeUnload(event) {
+    if (this.saveStatus === SAVE_STATUS.UNSAVED) {
+      const message = 'You have unsaved changes. Are you sure you want to leave?';
+      event.returnValue = message; // Standard for most browsers
+      return message; // For some older browsers
     }
+  }
 
   /**
-   * Register the keyboard event listener for hotkeys
-   */
+  * Register the keyboard event listener for hotkeys
+  */
   registerHotkeys() {
     if (!this.config.enableSaveHotkey) {
       debugLog('Save hotkey disabled in configuration');
@@ -285,8 +634,8 @@ class TeraFileSyncPlugin {
   }
 
   /**
-   * Remove the keyboard event listener
-   */
+  * Remove the keyboard event listener
+  */
   unregisterHotkeys() {
     if (typeof window !== 'undefined') {
       window.removeEventListener('keydown', this.keydownHandler);
@@ -294,9 +643,9 @@ class TeraFileSyncPlugin {
     }
   }
 
-    /**
-   * Registers the beforeunload event listener.
-   */
+  /**
+  * Registers the beforeunload event listener.
+  */
   registerBeforeUnload() {
     if (typeof window !== 'undefined') {
       window.addEventListener('beforeunload', this.beforeUnloadHandler);
@@ -305,8 +654,8 @@ class TeraFileSyncPlugin {
   }
 
   /**
-   * Unregisters the beforeunload event listener.
-   */
+  * Unregisters the beforeunload event listener.
+  */
   unregisterBeforeUnload() {
     if (typeof window !== 'undefined') {
       window.removeEventListener('beforeunload', this.beforeUnloadHandler);
@@ -315,8 +664,8 @@ class TeraFileSyncPlugin {
   }
 
   /**
-   * Show initial alert about manual saving
-   */
+  * Show initial alert about manual saving
+  */
   showInitialAlert() {
     if (this.config.showInitialAlert && !this.hasShownInitialAlert) {
       this.hasShownInitialAlert = true;
@@ -343,25 +692,25 @@ class TeraFileSyncPlugin {
   }
 
   /**
-   * Updates the save status in the store
-   * @param {string} status - The new save status
-   */
+  * Updates the save status in the store
+  * @param {string} status - The new save status
+  */
   updateSaveStatus(status) {
-    if (!this.store) return;
+    if (!this.storeAdapter) return;
 
     debugLog(`Updating save status: ${status}`);
     this.saveStatus = status;
 
-    // Commit the status to the store
-    this.store.commit('__tera_file_sync/updateSaveStatus', status);
+    // Use the adapter to update the status
+    this.storeAdapter.updateSaveStatus(status);
   }
 
   /**
-   * Gets the storage file name for the current user
-   * @async
-   * @returns {Promise<string>} The storage file name
-   * @throws {Error} If unable to get user ID when separate state is enabled
-   */
+  * Gets the storage key for the current user
+  * @async
+  * @returns {Promise<string>} The storage key
+  * @throws {Error} If unable to get user ID when separate state is enabled
+  */
   async getStorageKey() {
     if (this.config.isSeparateStateForEachUser) {
       if (!this.userId) {
@@ -380,11 +729,11 @@ class TeraFileSyncPlugin {
   }
 
   /**
-   * Gets the storage file name for the current user
-   * @async
-   * @returns {Promise<string>} The storage file name
-   * @throws {Error} If unable to get user ID when separate state is enabled
-   */
+  * Gets the storage file name for the current user
+  * @async
+  * @returns {Promise<string>} The storage file name
+  * @throws {Error} If unable to get user ID when separate state is enabled
+  */
   async getStorageFileName() {
     if (!this.vueInstance || !this.vueInstance.$tera || !this.vueInstance.$tera.project) {
       console.warn("Error getting fileStorageName: vueInstance, $tera or $tera.project missing:", this.vueInstance.$tera);
@@ -417,10 +766,10 @@ class TeraFileSyncPlugin {
   }
 
   /**
-   * Loads state from JSON file
-   * @async
-   * @returns {Promise<Object|null>} The loaded state or null if file not found
-   */
+  * Loads state from JSON file
+  * @async
+  * @returns {Promise<Object|null>} The loaded state or null if file not found
+  */
   async loadStateFromFile() {
     try {
       const fileName = await this.getStorageFileName()
@@ -455,11 +804,11 @@ class TeraFileSyncPlugin {
   }
 
   /**
-   * Saves state to JSON file
-   * @async
-   * @param {Object} state - The state to save
-   * @returns {Promise<boolean>} Whether the save was successful
-   */
+  * Saves state to JSON file
+  * @async
+  * @param {Object} state - The state to save
+  * @returns {Promise<boolean>} Whether the save was successful
+  */
   async saveStateToFile(state) {
     if (this.saveInProgress) {
       debugLog('Save already in progress, skipping')
@@ -496,19 +845,18 @@ class TeraFileSyncPlugin {
       return false
     } finally {
       this.saveInProgress = false
-       // Hide loading progress
+      // Hide loading progress
       await this.vueInstance.$tera.uiProgress(false);
     }
   }
 
   /**
-   * Initializes the store state from file or legacy data
-   * @async
-   * @param {Object} store - Vuex store instance
-   */
-  async initializeState(store) {
-    if (!this.teraReady || !this.vueInstance || !this.vueInstance.$tera) {
-      debugLog('TERA not ready, skipping initialization')
+  * Initializes the store state from file or legacy data
+  * @async
+  */
+  async initializeState() {
+    if (!this.teraReady || !this.vueInstance || !this.vueInstance.$tera || !this.storeAdapter) {
+      debugLog('TERA or store adapter not ready, skipping initialization')
       return
     }
 
@@ -524,10 +872,7 @@ class TeraFileSyncPlugin {
       const fileData = await this.loadStateFromFile()
       if (fileData) {
         const parsedState = objectToMapSet(fileData)
-        store.replaceState({
-          ...store.state,
-          ...parsedState
-        })
+        this.storeAdapter.replaceState(parsedState);
         debugLog('Store initialized from file data')
         this.updateSaveStatus(SAVE_STATUS.SAVED);
       } else {
@@ -556,8 +901,8 @@ class TeraFileSyncPlugin {
   }
 
   /**
-   * Sets up automatic saving on a timer
-   */
+  * Sets up automatic saving on a timer
+  */
   setupAutoSave() {
     if (this.config.autoSaveIntervalMinutes <= 0) {
       debugLog('Auto-save disabled')
@@ -573,9 +918,9 @@ class TeraFileSyncPlugin {
     debugLog(`Setting up auto-save every ${this.config.autoSaveIntervalMinutes} minutes`)
 
     this.autoSaveInterval = setInterval(() => {
-      if (this.saveStatus !== SAVE_STATUS.SAVED) {
+      if (this.saveStatus !== SAVE_STATUS.SAVED && this.storeAdapter) {
         debugLog('Auto-save triggered')
-        this.saveStateToFile(this.store.state)
+        this.saveStateToFile(this.storeAdapter.getState())
       } else {
         debugLog('Auto-save skipped - no changes detected')
       }
@@ -583,90 +928,99 @@ class TeraFileSyncPlugin {
   }
 
   /**
-   * Sets up state change tracking
-   * @param {Object} store - Vuex store instance
-   */
-  setupStateChangeTracking(store) {
-    // Subscribe to store mutations to track changes
-    store.subscribe((mutation) => {
-      // Ignore our own save status mutations
-      if (mutation.type === '__tera_file_sync/updateSaveStatus') return;
+  * Sets up state change tracking
+  */
+  setupStateChangeTracking() {
+    if (!this.storeAdapter) {
+      debugLog('Store adapter not initialized, skipping change tracking setup')
+      return
+    }
 
-      if (this.saveStatus !== SAVE_STATUS.SAVING ) {
+    // Subscribe to store mutations to track changes
+    this.storeAdapter.subscribe((mutation) => {
+      // Ignore our own save status mutations
+      if (mutation.type === '__tera_file_sync/updateSaveStatus' || mutation.type === 'updateSaveStatus') {
+        return;
+      }
+
+      if (this.saveStatus !== SAVE_STATUS.SAVING) {
         this.updateSaveStatus(SAVE_STATUS.UNSAVED);
       }
     });
   }
 
   /**
-   * Creates the Vuex plugin
-   * @returns {Function} Plugin installation function
-   */
-  createPlugin() {
-    return (store) => {
-      this.store = store
+  * Creates a store adapter based on the store type
+  * @param {Object} store - The store instance
+  * @param {Object} options - Additional options (like defineStore for Pinia)
+  * @returns {StoreAdapter} The store adapter
+  */
+  createStoreAdapter(store, options = {}) {
+    if (this.config.storeType === 'vuex') {
+      return new VuexAdapter(store);
+    } else if (this.config.storeType === 'pinia') {
+      if (!options.defineStore) {
+        throw new Error('defineStore function must be provided for Pinia adapter');
+      }
+      return new PiniaAdapter(store, options.defineStore);
+    }
+    throw new Error(`Unsupported store type: ${this.config.storeType}`);
+  }
 
-      // Register the module for save status
-      store.registerModule('__tera_file_sync', {
-        namespaced: true,
-        state: {
-          saveStatus: SAVE_STATUS.SAVED
-        },
-        mutations: {
-          updateSaveStatus(state, status) {
-            state.saveStatus = status;
-          }
-        },
-        getters: {
-          getSaveStatus: state => state.saveStatus
-        }
-      });
+  /**
+  * Creates the store plugin
+  * @returns {Function} Plugin installation function
+  */
+  createPlugin() {
+    return (store, options = {}) => {
+      // Create the appropriate adapter
+      this.storeAdapter = this.createStoreAdapter(store, options);
 
       // Set up change tracking
-      this.setupStateChangeTracking(store);
+      this.setupStateChangeTracking();
 
       return {
         /**
-         * Sets the TERA ready state and triggers initial load
-         * @async
-         */
+        * Sets the TERA ready state and triggers initial load
+        * @async
+        */
         setTeraReady: async () => {
           validateVueInstance(this.vueInstance)
           this.teraReady = true
-          await this.initializeState(store)
+          await this.initializeState()
           // Enable autosave
           this.setupAutoSave()
         },
 
         /**
-         * Sets the Vue instance
-         * @param {Object} instance - Vue instance
-         * @throws {Error} If Vue instance is invalid
-         */
+        * Sets the Vue instance
+        * @param {Object} instance - Vue instance
+        * @throws {Error} If Vue instance is invalid
+        */
         setVueInstance: (instance) => {
           this.vueInstance = instance
         },
 
         /**
-         * Manually saves the current state to file
-         * @async
-         * @returns {Promise<boolean>} Whether the save was successful
-         */
+        * Manually saves the current state to file
+        * @async
+        * @returns {Promise<boolean>} Whether the save was successful
+        */
         saveState: async () => {
-          return await this.saveStateToFile(store.state)
+          return await this.saveStateToFile(this.storeAdapter.getState())
         },
 
         /**
-         * Gets the current save status
-         * @returns {string} The current save status
-         */
+        * Gets the current save status
+        * @returns {string} The current save status
+        */
         getSaveStatus: () => {
           return this.saveStatus;
         },
 
         /**
-         * Cleans up the plugin
-         */
+        * Cleans up the plugin
+        */
         destroy: () => {
           if (this.autoSaveInterval) {
             clearInterval(this.autoSaveInterval)
@@ -675,12 +1029,12 @@ class TeraFileSyncPlugin {
           this.unregisterHotkeys();
           // Unregister the beforeunload listener
           this.unregisterBeforeUnload();
-          // Unregister store module if possible
-          if (store.hasModule('__tera_file_sync')) {
-            store.unregisterModule('__tera_file_sync');
-          }
           this.initialized = false
           this.teraReady = false
+          // Clean up Pinia subscriptions if applicable
+          if (this.storeAdapter && this.storeAdapter.unsubscribers) {
+            this.storeAdapter.unsubscribers.forEach(unsubscribe => unsubscribe());
+          }
         }
       }
     }
@@ -688,16 +1042,17 @@ class TeraFileSyncPlugin {
 }
 
 /**
- * Creates a new TERA file sync plugin instance
- * @param {string} keyPrefix - Prefix for storage keys and filenames
- * @param {boolean} [isSeparateStateForEachUser=false] - Whether to maintain separate state for each user
- * @param {Object} [options={}] - Additional plugin options
- * @param {number} [options.autoSaveIntervalMinutes=10] - Auto-save interval in minutes (0 to disable)
- * @param {boolean} [options.showInitialAlert=true] - Whether to show initial alert about manual saving
- * @param {boolean} [options.enableSaveHotkey=true] - Whether to enable Ctrl+S hotkey for saving
- * @returns {Function} Plugin installation function
- * @throws {Error} If parameters are invalid
- */
+* Creates a new TERA file sync plugin instance
+* @param {string} keyPrefix - Prefix for storage keys and filenames
+* @param {boolean} [isSeparateStateForEachUser=false] - Whether to maintain separate state for each user
+* @param {Object} [options={}] - Additional plugin options
+* @param {number} [options.autoSaveIntervalMinutes=10] - Auto-save interval in minutes (0 to disable)
+* @param {boolean} [options.showInitialAlert=true] - Whether to show initial alert about manual saving
+* @param {boolean} [options.enableSaveHotkey=true] - Whether to enable Ctrl+S hotkey for saving
+* @param {'vuex'|'pinia'} [options.storeType='vuex'] -  The type of store ('vuex' or 'pinia').
+* @returns {Function} Plugin installation function
+* @throws {Error} If parameters are invalid
+*/
 const createSyncPlugin = (keyPrefix, isSeparateStateForEachUser = false, options = {}) => {
   if (typeof keyPrefix !== 'string') {
     throw new Error('keyPrefix must be a string')
