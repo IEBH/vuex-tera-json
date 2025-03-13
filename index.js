@@ -22,7 +22,7 @@ const DEBUG = true
 const DEFAULT_CONFIG = {
   keyPrefix: '',
   isSeparateStateForEachUser: false,
-  autoSaveIntervalMinutes: 10,
+  autoSaveIntervalMinutes: 15,
   showInitialAlert: true,
   enableSaveHotkey: true
 }
@@ -320,7 +320,7 @@ class TeraFileSyncPlugin {
   showInitialAlert() {
     if (this.config.showInitialAlert && !this.hasShownInitialAlert) {
       this.hasShownInitialAlert = true;
-      const message = "This tool no longer automatically saves progress, please use Ctrl+S to save progress";
+      const message = "This TERA tool no longer automatically saves progress, use Ctrl+S, or click save in the top right corner, to save progress. (This is a short-term temporary pop-up, it will be removed at the start of April)";
 
       // Use Vue notification system if available
       if (this.vueInstance && this.vueInstance.$notify) {
