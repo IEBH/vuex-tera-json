@@ -386,8 +386,16 @@ class TeraFileSyncPlugin {
    * @throws {Error} If unable to get user ID when separate state is enabled
    */
   async getStorageFileName() {
-    if (!this.vueInstance || !this.vueInstance.$tera || !this.vueInstance.$tera.project) {
-      console.warn("Error getting fileStorageName: vueInstance, $tera or $tera.project missing:", this.vueInstance.$tera);
+    if (!this.vueInstance) {
+      console.warn("Error getting fileStorageName: vueInstance missing:", this.vueInstance.$tera);
+      return;
+    }
+    if (!this.vueInstance.$tera ) {
+      console.warn("Error getting fileStorageName: $tera missing", this.vueInstance.$tera);
+      return;
+    }
+    if (!this.vueInstance.$tera.project) {
+      console.warn("Error getting fileStorageName: $tera.project missing:", this.vueInstance.$tera);
       return;
     }
     if (!this.vueInstance.$tera.project.temp) {
