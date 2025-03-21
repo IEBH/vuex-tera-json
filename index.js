@@ -151,7 +151,7 @@ const mapSetToObject = (item) => {
     return item
   } catch (error) {
     logError(error, 'mapSetToObject conversion failed')
-    return item
+    throw error;
   }
 }
 
@@ -193,7 +193,7 @@ const objectToMapSet = (obj) => {
     return newObj
   } catch (error) {
     logError(error, 'objectToMapSet conversion failed')
-    return obj
+    throw error;
   }
 }
 
@@ -204,6 +204,8 @@ const objectToMapSet = (obj) => {
 const showNotification = (message) => {
   if (typeof window !== 'undefined' && window.alert) {
     window.alert(message);
+  } else if (alert) {
+    alert(message);
   } else {
     debugLog('Alert would be shown:', message);
   }
@@ -387,27 +389,22 @@ class TeraFileSyncPlugin {
    */
   async getStorageFileName() {
     if (!this.vueInstance) {
-      console.warn("Error getting fileStorageName: vueInstance missing:", this.vueInstance.$tera);
-      return;
+      throw new Error("Error getting fileStorageName: vueInstance missing");
     }
     if (!this.vueInstance.$tera ) {
-      console.warn("Error getting fileStorageName: $tera missing", this.vueInstance.$tera);
-      return;
+      throw new Error("Error getting fileStorageName: $tera missing");
     }
     if (!this.vueInstance.$tera.project) {
-      console.warn("Error getting fileStorageName: $tera.project missing:", this.vueInstance.$tera);
-      return;
+      throw new Error("Error getting fileStorageName: $tera.project missing");
+    }
+    if (!this.vueInstance.$tera.project.id) {
+      throw new Error("Error getting fileStorageName: $tera.project.id missing");
     }
     if (!this.vueInstance.$tera.project.temp) {
-      console.warn("Error getting fileStorageName: $tera.project.temp missing:", this.vueInstance.$tera.project);
+      console.warn("Error getting fileStorageName: $tera.project.temp missing");
       console.warn("Creating $tera.project.temp...");
       // TODO: Work out if setProjectState is better
       this.vueInstance.$tera.project.temp = {}
-      return;
-    }
-    if (!this.vueInstance.$tera.project.id) {
-      console.warn("Error getting fileStorageName: $tera.project.id missing:", this.vueInstance.$tera.project);
-      return;
     }
     const key = await this.getStorageKey();
     let fileStorageName = this.vueInstance.$tera.project.temp[key];
@@ -435,8 +432,7 @@ class TeraFileSyncPlugin {
       debugLog(`Loading state from file: ${fileName}`)
 
       if (!fileName) {
-        console.warning('No file name returned when expected!');
-        return null;
+        throw new Error('No file name returned when expected!');
       }
 
       const encodedFileName = btoa(fileName);
@@ -458,6 +454,7 @@ class TeraFileSyncPlugin {
         return null
       }
       logError(error, 'Failed to load state from file')
+      showNotification('Failed to load state from file, using default state')
       return null
     }
   }
@@ -500,6 +497,7 @@ class TeraFileSyncPlugin {
       return true
     } catch (error) {
       logError(error, 'Failed to save state to file')
+      showNotification('Failed to save state to file, hit F12 for debug information')
       this.updateSaveStatus(SAVE_STATUS.UNSAVED);
       return false
     } finally {
