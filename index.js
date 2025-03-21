@@ -606,6 +606,54 @@ class TeraFileSyncPlugin {
   }
 
   /**
+   * Set the state by prompting the user for a JSON file using TERA
+   * This json file will then also be set to be the pointed to file
+   * in `temp`
+   */
+  async setStateFromPromptedJsonFile(store) {
+    try {
+      // Prompt user for file
+      const projectFile = await this.vueInstance.$tera.selectProjectFile({
+        title: 'Load screening file',
+      });
+
+      // Check if a file was actually selected
+      if (!projectFile) {
+        debugLog('User cancelled file selection.');
+        return; // Exit gracefully if no file selected
+      }
+
+      // Get data from file
+      const fileData = await projectFile.getContents({ format: 'json' });
+
+      // Check for null or undefined fileData and handle appropriately
+      if (!fileData) {
+        debugLog('Selected file is empty.');
+        showNotification('The selected file is empty.'); // Notify user
+        return; // Prevent further processing
+      }
+
+      // Update state
+      const parsedState = objectToMapSet(fileData);
+      store.replaceState({
+        ...store.state,
+        ...parsedState
+      });
+
+      // Replace file path with new file path
+      const filePath = projectFile.path;
+      this.vueInstance.$tera.setProjectState(`temp.${await this.getStorageKey()}`, filePath);
+      debugLog('Store initialized from file data');
+      this.updateSaveStatus(SAVE_STATUS.SAVED);
+    } catch (error) {
+      logError(error, 'Failed to set state from prompted JSON file');
+      showNotification('Failed to load data from the selected file.'); // User-friendly error
+      // Consider resetting the save status or other recovery actions here
+      this.updateSaveStatus(SAVE_STATUS.UNSAVED);
+    }
+  }
+
+  /**
    * Creates the Vuex plugin
    * @returns {Function} Plugin installation function
    */
@@ -669,6 +717,14 @@ class TeraFileSyncPlugin {
          */
         getSaveStatus: () => {
           return this.saveStatus;
+        },
+
+        /**
+         * Prompt the user for a new data json file
+         * @returns {Promise<void>}
+         */
+        promptForNewJsonFile: async () => {
+          return await this.setStateFromPromptedJsonFile(this.store)
         },
 
         /**

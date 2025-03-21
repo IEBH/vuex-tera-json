@@ -3,7 +3,8 @@ import { Plugin } from 'vuex';
 interface TeraSyncPluginInstance {
   setTeraReady(): void;
   setVueInstance(instance: any): void;
-  saveState(): boolean;
+  saveState(): Promise<boolean>;
+  promptForNewJsonFile(): Promise<void>;
   destroy(): void;
 }
 
