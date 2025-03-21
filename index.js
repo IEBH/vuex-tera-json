@@ -541,12 +541,6 @@ class TeraFileSyncPlugin {
         this.updateSaveStatus(SAVE_STATUS.UNSAVED);
       }
 
-      this.initialized = true
-      // Hide loading
-      if (typeof this.vueInstance.$tera.uiProgress === 'function') {
-        await this.vueInstance.$tera.uiProgress(false)
-      }
-
       // Show initial alert about manual saving
       this.showInitialAlert();
 
@@ -558,6 +552,13 @@ class TeraFileSyncPlugin {
 
     } catch (error) {
       logError(error, 'State initialization failed')
+      showNotification('Error initializing state from file')
+    } finally {
+      this.initialized = true
+      // Hide loading
+      if (typeof this.vueInstance.$tera.uiProgress === 'function') {
+        await this.vueInstance.$tera.uiProgress(false)
+      }
     }
   }
 
