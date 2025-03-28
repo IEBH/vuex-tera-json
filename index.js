@@ -497,7 +497,7 @@ class TeraFileSyncPlugin {
       return true
     } catch (error) {
       logError(error, 'Failed to save state to file')
-      showNotification('Failed to save state to file, hit F12 for debug information')
+      showNotification('Failed to save state to file, hit F12 for debug information or manually save via File -> Save progress')
       this.updateSaveStatus(SAVE_STATUS.UNSAVED);
       return false
     } finally {
