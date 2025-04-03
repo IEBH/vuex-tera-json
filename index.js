@@ -23,7 +23,7 @@ const DEFAULT_CONFIG = {
   keyPrefix: '',
   isSeparateStateForEachUser: false,
   autoSaveIntervalMinutes: 15,
-  showInitialAlert: true,
+  showInitialAlert: false,
   enableSaveHotkey: true
 }
 
@@ -756,7 +756,7 @@ class TeraFileSyncPlugin {
  * @param {boolean} [isSeparateStateForEachUser=false] - Whether to maintain separate state for each user
  * @param {Object} [options={}] - Additional plugin options
  * @param {number} [options.autoSaveIntervalMinutes=10] - Auto-save interval in minutes (0 to disable)
- * @param {boolean} [options.showInitialAlert=true] - Whether to show initial alert about manual saving
+ * @param {boolean} [options.showInitialAlert=false] - Whether to show initial alert about manual saving
  * @param {boolean} [options.enableSaveHotkey=true] - Whether to enable Ctrl+S hotkey for saving
  * @returns {Function} Plugin installation function
  * @throws {Error} If parameters are invalid
