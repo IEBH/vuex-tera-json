@@ -1,6 +1,6 @@
 {
   "name": "@iebh/vuex-tera-json",
-  "version": "2.1.5",
+  "version": "2.1.6",
   "publishConfig": {
     "access": "public"
   },

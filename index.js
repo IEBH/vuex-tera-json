@@ -614,7 +614,8 @@ class TeraFileSyncPlugin {
     try {
       // Prompt user for file
       const projectFile = await this.vueInstance.$tera.selectProjectFile({
-        title: 'Load screening file',
+        title: 'Load JSON file',
+        showHiddenFiles: true,
       });
 
       // Check if a file was actually selected
