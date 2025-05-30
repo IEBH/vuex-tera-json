@@ -1,4 +1,5 @@
 import {nanoid} from 'nanoid';
+import pRetry from 'p-retry';
 
 /**
  * @constant {boolean}
@@ -412,7 +413,15 @@ class TeraFileSyncPlugin {
       debugLog("No existing file for project/tool, creating one");
       fileStorageName = `data-${this.config.keyPrefix}-${nanoid()}.json`
       await this.vueInstance.$tera.createProjectFile(fileStorageName);
-      this.vueInstance.$tera.setProjectState(`temp.${await this.getStorageKey()}`, fileStorageName);
+      await pRetry(async () => {
+        await this.vueInstance.$tera.setProjectState(`temp.${await this.getStorageKey()}`, fileStorageName);
+      }, {
+        retries: 2,
+        minTimeout: 200,
+        onFailedAttempt: error => {
+          debugLog(`[Set storage key attempt ${error.attemptNumber}] Failed for ${fileStorageName}. Error: ${error.message}. Retries left: ${error.retriesLeft}.`);
+        }
+      });
     }
     if (typeof fileStorageName !== 'string') {
       throw new Error(`fileStorageName is not a string: ${fileStorageName}`);
@@ -428,16 +437,30 @@ class TeraFileSyncPlugin {
    */
   async loadStateFromFile() {
     try {
-      const fileName = await this.getStorageFileName()
-      debugLog(`Loading state from file: ${fileName}`)
+      let fileName;
+      let fileContent;
 
-      if (!fileName) {
-        throw new Error('No file name returned when expected!');
-      }
+      // Load file with retries
+      await pRetry(async () => {
+        fileName = await this.getStorageFileName()
+        debugLog(`Loading state from file: ${fileName}`)
 
-      const encodedFileName = btoa(fileName);
+        if (!fileName) {
+          throw new Error('No file name returned when expected!');
+        }
 
-      const fileContent = await this.vueInstance.$tera.getProjectFileContents(encodedFileName, { format: 'json' })
+        const encodedFileName = btoa(fileName);
+
+        fileContent = await this.vueInstance.$tera.getProjectFileContents(encodedFileName, { format: 'json' })
+      }, {
+        retries: 3,
+        minTimeout: 1000, // 1 second initial delay
+        factor: 2, // Exponential backoff
+        onFailedAttempt: error => {
+          debugLog(`[Load Attempt ${error.attemptNumber}] Failed for ${fileName}. Error: ${error.message}. Retries left: ${error.retriesLeft}.`);
+        }
+      })
+
       if (!fileContent) {
         debugLog('File not found or empty')
         return null
@@ -472,26 +495,37 @@ class TeraFileSyncPlugin {
     }
 
     try {
+      let fileName;
       this.saveInProgress = true
       this.updateSaveStatus(SAVE_STATUS.SAVING);
 
       // Show loading progress
       await this.vueInstance.$tera.uiProgress({ title: 'Saving tool data', backdrop: 'static' });
 
-      const fileName = await this.getStorageFileName()
+      // Save file with retries
+      await pRetry(async () => {
+        fileName = await this.getStorageFileName()
 
-      if (!fileName) {
-        throw new Error('No fileName returned')
-      }
+        if (!fileName) {
+          throw new Error('No fileName returned')
+        }
 
-      const encodedFileName = btoa(fileName);
+        const encodedFileName = btoa(fileName);
 
-      const stateToSave = mapSetToObject(state)
+        const stateToSave = mapSetToObject(state)
 
-      await this.vueInstance.$tera.setProjectFileContents(encodedFileName, stateToSave, {format: 'json'})
+        await this.vueInstance.$tera.setProjectFileContents(encodedFileName, stateToSave, {format: 'json'})
 
-      // Update last saved state reference after successful save
-      this.updateSaveStatus(SAVE_STATUS.SAVED);
+        // Update last saved state reference after successful save
+        this.updateSaveStatus(SAVE_STATUS.SAVED);
+      }, {
+        retries: 3,
+        minTimeout: 1000, // 1 second initial delay
+        factor: 2, // Exponential backoff
+        onFailedAttempt: error => {
+          debugLog(`[Save Attempt ${error.attemptNumber}] Failed for ${fileName}. Error: ${error.message}. Retries left: ${error.retriesLeft}.`);
+        }
+      })
 
       debugLog(`State saved to file: ${fileName}`)
       return true
@@ -624,8 +658,16 @@ class TeraFileSyncPlugin {
         return; // Exit gracefully if no file selected
       }
 
-      // Get data from file
-      const fileData = await projectFile.getContents({ format: 'json' });
+      // Get data from file with retries
+      const fileData = await pRetry(async () => {
+        return await projectFile.getContents({ format: 'json' });
+      }, {
+        retries: 3,
+        minTimeout: 1000,
+        onFailedAttempt: error => {
+          debugLog(`[Load Prompted File Attempt ${error.attemptNumber}] Failed. Error: ${error.message}. Retries left: ${error.retriesLeft}.`);
+        }
+      });
 
       // Check for null or undefined fileData and handle appropriately
       if (!fileData) {

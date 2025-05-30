@@ -1,6 +1,6 @@
 {
   "name": "@iebh/vuex-tera-json",
-  "version": "2.1.6",
+  "version": "2.1.7",
   "publishConfig": {
     "access": "public"
   },
@@ -30,6 +30,7 @@
     "eslint-plugin-vue": "^9.26.0"
   },
   "dependencies": {
-    "nanoid": "^5.1.0"
+    "nanoid": "^5.1.0",
+    "p-retry": "^4.6.2"
   }
 }
