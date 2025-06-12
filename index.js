@@ -203,7 +203,9 @@ const objectToMapSet = (obj) => {
  * @param {string} message - The message to display
  */
 const showNotification = (message) => {
-  if (typeof window !== 'undefined' && window.alert) {
+  if (typeof this.vueInstance.$tera.uiAlert === 'function') {
+    this.vueInstance.$tera.uiAlert(message);
+  } else if (typeof window !== 'undefined' && window.alert) {
     window.alert(message);
   } else if (alert) {
     alert(message);
@@ -412,8 +414,31 @@ class TeraFileSyncPlugin {
     if (!fileStorageName) {
       debugLog("No existing file for project/tool, creating one");
       fileStorageName = `data-${this.config.keyPrefix}-${nanoid()}.json`
-      await this.vueInstance.$tera.createProjectFile(fileStorageName);
+      // Create file
+      let newFile;
       await pRetry(async () => {
+        newFile = await this.vueInstance.$tera.createProjectFile(fileStorageName);
+      }, {
+        retries: 2,
+        minTimeout: 200,
+        onFailedAttempt: error => {
+          debugLog(`[Create file attempt ${error.attemptNumber}] Failed for ${fileStorageName}. Error: ${error.message}. Retries left: ${error.retriesLeft}.`);
+        }
+      });
+      // Save new file with default state
+      await pRetry(async () => {
+        debugLog("Saving default state to newly created file...")
+        await newFile.setContents(this.store.state);
+      }, {
+        retries: 2,
+        minTimeout: 200,
+        onFailedAttempt: error => {
+          debugLog(`[Set default contents attempt ${error.attemptNumber}] Failed for ${fileStorageName}. Error: ${error.message}. Retries left: ${error.retriesLeft}.`);
+        }
+      });
+      // Set file name in project data
+      await pRetry(async () => {
+        debugLog("Saving file name to project data...")
         await this.vueInstance.$tera.setProjectState(`temp.${await this.getStorageKey()}`, fileStorageName);
       }, {
         retries: 2,
