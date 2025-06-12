@@ -203,9 +203,7 @@ const objectToMapSet = (obj) => {
  * @param {string} message - The message to display
  */
 const showNotification = (message) => {
-  if (typeof this.vueInstance.$tera.uiAlert === 'function') {
-    this.vueInstance.$tera.uiAlert(message);
-  } else if (typeof window !== 'undefined' && window.alert) {
+  if (typeof window !== 'undefined' && window.alert) {
     window.alert(message);
   } else if (alert) {
     alert(message);
@@ -502,6 +500,10 @@ class TeraFileSyncPlugin {
         return null
       }
       logError(error, 'Failed to load state from file')
+      // TODO: This can eventually be removed
+      if (typeof error === 'string' && !error.includes("Unexpected end of JSON input")) {
+        return null // don't show notification
+      }
       showNotification('Failed to load state from file, using default state')
       return null
     }
