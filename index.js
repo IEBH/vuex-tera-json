@@ -501,7 +501,12 @@ class TeraFileSyncPlugin {
       }
       logError(error, 'Failed to load state from file')
       // TODO: This can eventually be removed
-      if (typeof error === 'string' && !error.includes("Unexpected end of JSON input")) {
+      console.log("START")
+      console.log(typeof error);
+      console.log(error);
+      console.log(error.message);
+      console.log("END")
+      if (error.message && error.message.includes("Unexpected end of JSON input")) {
         return null // don't show notification
       }
       showNotification('Failed to load state from file, using default state')
