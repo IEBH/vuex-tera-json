@@ -100,6 +100,10 @@ const validateVueInstance = (instance) => {
     throw new Error('$tera.getUser must be a function')
   }
 
+  if (typeof instance.$tera.getProjectFile !== 'function') {
+    throw new Error('$tera.getProjectFile must be a function')
+  }
+
   if (typeof instance.$tera.getProjectFileContents !== 'function') {
     throw new Error('$tera.getProjectFileContents must be a function')
   }
@@ -385,10 +389,12 @@ class TeraFileSyncPlugin {
   /**
    * Gets the storage file name for the current user
    * @async
+   * @param {Object} options - The options passed to the function
+   * @param {boolean} options.returnFullPath - Whether the full path should be returned or just the file name
    * @returns {Promise<string>} The storage file name
    * @throws {Error} If unable to get user ID when separate state is enabled
    */
-  async getStorageFileName() {
+  async getStorageFileName({ returnFullPath = true } = {}) {
     if (!this.vueInstance) {
       throw new Error("Error getting fileStorageName: vueInstance missing");
     }
@@ -449,8 +455,13 @@ class TeraFileSyncPlugin {
     if (typeof fileStorageName !== 'string') {
       throw new Error(`fileStorageName is not a string: ${fileStorageName}`);
     }
-    const fullFileStoragePath = `${this.vueInstance.$tera.project.id}/${fileStorageName}`
-    return fullFileStoragePath;
+    let fileName;
+    if (returnFullPath) {
+      fileName = `${this.vueInstance.$tera.project.id}/${fileStorageName}`;
+    } else {
+      fileName = fileStorageName;
+    }
+    return fileName;
   }
 
   /**
@@ -506,6 +517,43 @@ class TeraFileSyncPlugin {
       }
       showNotification('Failed to load state from file, using default state')
       return null
+    }
+  }
+
+  /**
+   * Loads state from the file, parses it, and replaces the current store state.
+   * @async
+   * @returns {Promise<boolean>} True if the load was successful, false otherwise.
+   */
+  async loadAndApplyStateFromFile() {
+    try {
+      await this.vueInstance.$tera.uiProgress({ title: 'Loading tool data', backdrop: 'static' });
+      const fileData = await this.loadStateFromFile();
+
+      if (fileData) {
+        const parsedState = objectToMapSet(fileData);
+        this.store.replaceState({
+          ...this.store.state,
+          ...parsedState
+        });
+        debugLog('Store state replaced from file data.');
+        this.updateSaveStatus(SAVE_STATUS.SAVED);
+        return true;
+      } else {
+        // This case means the file doesn't exist or is empty.
+        // We consider this a "successful" load of nothing, and mark state as unsaved.
+        debugLog('No file data found to load. Using default state.');
+        this.updateSaveStatus(SAVE_STATUS.UNSAVED);
+        return true;
+      }
+    } catch (error) {
+      logError(error, 'State load and apply failed.');
+      showNotification('Error loading state from file.');
+      return false;
+    } finally {
+      if (typeof this.vueInstance.$tera.uiProgress === 'function') {
+        await this.vueInstance.$tera.uiProgress(false);
+      }
     }
   }
 
@@ -572,8 +620,10 @@ class TeraFileSyncPlugin {
    * Initializes the store state from file or legacy data
    * @async
    * @param {Object} store - Vuex store instance
+   * @param {Object} [options={}] - Initialization options
+   * @param {boolean} [options.loadImmediately=true] - Whether to load from file immediately
    */
-  async initializeState(store) {
+  async initializeState(store, { loadImmediately = true } = {}) {
     if (!this.teraReady || !this.vueInstance || !this.vueInstance.$tera) {
       debugLog('TERA not ready, skipping initialization')
       return
@@ -587,18 +637,11 @@ class TeraFileSyncPlugin {
     }
 
     try {
-      // Try to load from file
-      const fileData = await this.loadStateFromFile()
-      if (fileData) {
-        const parsedState = objectToMapSet(fileData)
-        store.replaceState({
-          ...store.state,
-          ...parsedState
-        })
-        debugLog('Store initialized from file data')
-        this.updateSaveStatus(SAVE_STATUS.SAVED);
+      if (loadImmediately) {
+        debugLog('Initializing with immediate load from file.');
+        await this.loadAndApplyStateFromFile();
       } else {
-        debugLog('No existing data found, using default store state')
+        debugLog('Skipping immediate load. State will be considered unsaved until loaded.');
         this.updateSaveStatus(SAVE_STATUS.UNSAVED);
       }
 
@@ -724,6 +767,44 @@ class TeraFileSyncPlugin {
   }
 
   /**
+   * Gets metadata for the storage file.
+   * @async
+   * @returns {Promise<Object|null>} An object with metadata (e.g., { lastModified: Date }) or null.
+   */
+  async getFileMetadata() {
+    try {
+      const fileName = await this.getStorageFileName({ returnFullPath: false });
+      if (!fileName) {
+        debugLog('Cannot get metadata, no storage file name available.');
+        return null;
+      }
+
+      // Use a TERA API method to get the file object/metadata.
+      const fileObject = await this.vueInstance.$tera.getProjectFile(fileName, { cache: false });
+
+      if (!fileObject) {
+        debugLog(`Could not retrieve file metadata for ${fileName}.`);
+        return null;
+      }
+
+      const metadata = {
+        modified: new Date(fileObject.modified) // Ensure it's a Date object
+      };
+
+      debugLog(`Retrieved metadata for ${fileName}:`, metadata);
+      return metadata;
+
+    } catch (error) {
+      if (error.message && error.message.includes('not found')) {
+        debugLog('State file not found, no metadata available.');
+        return null;
+      }
+      logError(error, 'Failed to get file metadata');
+      return null;
+    }
+  }
+
+  /**
    * Creates the Vuex plugin
    * @returns {Function} Plugin installation function
    */
@@ -795,6 +876,27 @@ class TeraFileSyncPlugin {
          */
         promptForNewJsonFile: async () => {
           return await this.setStateFromPromptedJsonFile(this.store)
+        },
+
+        /**
+         * Retrieves metadata for the storage file, such as last modified date.
+         * @async
+         * @returns {Promise<Object|null>} Metadata object (e.g., { lastModified: Date }) or null.
+         */
+        getFileMetadata: async () => {
+          return await this.getFileMetadata();
+        },
+
+        /**
+         * Manually triggers a load from the file and replaces the store's state.
+         * Use this if you initialized the plugin with `loadImmediately: false`.
+         * @async
+         * @returns {Promise<boolean>} True if successful.
+         */
+        loadStateFromFile: async () => {
+          // The public method name is still `loadStateFromFile` as you requested,
+          // but it now calls our clean, internal, single-responsibility function.
+          return await this.loadAndApplyStateFromFile();
         },
 
         /**
