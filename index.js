@@ -21,11 +21,18 @@ const DEBUG = true
  * @description Default configuration for the TERA sync plugin
  */
 const DEFAULT_CONFIG = {
+  // The tool name (e.g. 'screenatron')
   keyPrefix: '',
+  // Whether each user has separate state or is shared for a project
   isSeparateStateForEachUser: false,
+  // How often auto save should be performed
   autoSaveIntervalMinutes: 15,
+  // Whether the initial alert should be shown warning users to use ctrl+s to save
   showInitialAlert: false,
-  enableSaveHotkey: true
+  // Whether ctrl+s to save is enabled
+  enableSaveHotkey: true,
+  // Whether the state should be loaded immediately or done manually
+  loadImmediately: true
 }
 
 /**
@@ -79,6 +86,10 @@ const validateConfig = (config) => {
 
   if (typeof config.enableSaveHotkey !== 'boolean') {
     throw new Error('enableSaveHotkey must be a boolean')
+  }
+
+  if (typeof config.loadImmediately !== 'boolean') {
+    throw new Error('loadImmediately must be a boolean')
   }
 }
 
@@ -839,7 +850,7 @@ class TeraFileSyncPlugin {
         setTeraReady: async () => {
           validateVueInstance(this.vueInstance)
           this.teraReady = true
-          await this.initializeState(store)
+          await this.initializeState(store, { loadImmediately: this.config.loadImmediately })
           // Enable autosave
           this.setupAutoSave()
         },
