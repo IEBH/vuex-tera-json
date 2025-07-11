@@ -886,7 +886,7 @@ class TeraFileSyncPlugin {
   setupStateChangeTracking() {
     // Subscribe to store mutations to track changes
     this.adapter.subscribe(() => {
-      if (this.saveStatus !== SAVE_STATUS.SAVING) {
+      if (!this.saveInProgress) {
         this.updateSaveStatus(SAVE_STATUS.UNSAVED);
       }
     });
