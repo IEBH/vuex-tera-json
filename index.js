@@ -360,6 +360,49 @@ class PiniaAdapter extends StoreAdapter {
 }
 
 /**
+ * @class
+ * @description Adapter for a plain object that provides methods for state management.
+ * This is designed for advanced use cases, such as aggregating multiple Pinia stores,
+ * where a single store instance isn't available. The provided 'store' object must
+ * implement getState(), replaceState(newState), updateSaveStatus(status), and subscribe(callback).
+ * @extends StoreAdapter
+ */
+class PlainObjectAdapter extends StoreAdapter {
+  setup() {
+    // No specific setup is needed for this adapter.
+    debugLog('Setting up PlainObjectAdapter.');
+  }
+
+  getState() {
+    if (typeof this.store.getState !== 'function') {
+      throw new Error("The provided object for PlainObjectAdapter must have a 'getState' method.");
+    }
+    return this.store.getState();
+  }
+
+  replaceState(newState) {
+    if (typeof this.store.replaceState !== 'function') {
+      throw new Error("The provided object for PlainObjectAdapter must have a 'replaceState' method.");
+    }
+    this.store.replaceState(newState);
+  }
+
+  updateSaveStatus(status) {
+    if (typeof this.store.updateSaveStatus !== 'function') {
+      throw new Error("The provided object for PlainObjectAdapter must have an 'updateSaveStatus' method.");
+    }
+    this.store.updateSaveStatus(status);
+  }
+
+  subscribe(callback) {
+    if (typeof this.store.subscribe !== 'function') {
+      throw new Error("The provided object for PlainObjectAdapter must have a 'subscribe' method.");
+    }
+    this.unsubscribe = this.store.subscribe(callback);
+  }
+}
+
+/**
  * @class TeraFileSyncPlugin
  * @description Plugin class for syncing Vuex store state with TERA JSON files
  */
@@ -1016,15 +1059,28 @@ class TeraFileSyncPlugin {
 const createTeraSync = (config, store) => {
   let adapter;
 
-  // "Sniff" the store type to determine which adapter to use
-  if (store && typeof store.$id === 'string' && typeof store.$patch === 'function') {
-    debugLog('Detected Pinia store.');
+  // "Sniff" the store type to determine which adapter to use.
+  // The order of checks is important.
+  if (
+    store &&
+    typeof store.getState === 'function' &&
+    typeof store.replaceState === 'function' &&
+    typeof store.updateSaveStatus === 'function' &&
+    typeof store.subscribe === 'function'
+  ) {
+    // --- NEW: Check for the custom aggregator object pattern first ---
+    debugLog('Detected custom aggregator object. Using PlainObjectAdapter.');
+    adapter = new PlainObjectAdapter(store);
+  } else if (store && typeof store.$id === 'string' && typeof store.$patch === 'function') {
+    // --- Check for Pinia store ---
+    debugLog('Detected Pinia store. Using PiniaAdapter.');
     adapter = new PiniaAdapter(store);
   } else if (store && typeof store.commit === 'function' && typeof store.subscribe === 'function') {
-    debugLog('Detected Vuex store.');
+    // --- Check for Vuex store ---
+    debugLog('Detected Vuex store. Using VuexAdapter.');
     adapter = new VuexAdapter(store);
   } else {
-    throw new Error('Could not determine store type. Please provide a valid Vuex or Pinia store instance.');
+    throw new Error('Could not determine store type. Please provide a valid Vuex store, Pinia store, or a custom aggregator object.');
   }
 
   const plugin = new TeraFileSyncPlugin(config, adapter);
