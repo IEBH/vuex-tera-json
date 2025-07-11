@@ -228,6 +228,138 @@ const showNotification = (message) => {
 };
 
 /**
+ * @class
+ * @description Abstract base class for store adapters. Defines the interface for interacting with a state management library.
+ */
+class StoreAdapter {
+  constructor(store) {
+    if (this.constructor === StoreAdapter) {
+      throw new Error("Abstract classes can't be instantiated.");
+    }
+    this.store = store;
+    this.unsubscribe = () => {};
+  }
+  /** @returns {Object} The current state object. */
+  getState() { throw new Error('Not implemented'); }
+  /** @param {Object} newState - The state to apply. */
+  // eslint-disable-next-line no-unused-vars
+  replaceState(newState) { throw new Error('Not implemented'); }
+  /** @param {string} status - The new save status. */
+  // eslint-disable-next-line no-unused-vars
+  updateSaveStatus(status) { throw new Error('Not implemented'); }
+  /** @param {Function} callback - The function to call on state change. */
+  // eslint-disable-next-line no-unused-vars
+  subscribe(callback) { throw new Error('Not implemented'); }
+  /** Sets up any necessary state or modules in the store. */
+  setup() { throw new Error('Not implemented'); }
+  /** Cleans up subscriptions and modules. */
+  destroy() { this.unsubscribe(); }
+}
+
+/**
+ * @class
+ * @description Adapter for Vuex stores.
+ * @extends StoreAdapter
+ */
+class VuexAdapter extends StoreAdapter {
+  setup() {
+    debugLog('Setting up Vuex adapter.');
+    if (this.store.hasModule('__tera_file_sync')) {
+      debugLog('Vuex module __tera_file_sync already registered.');
+      return;
+    }
+    this.store.registerModule('__tera_file_sync', {
+      namespaced: true,
+      state: { saveStatus: SAVE_STATUS.SAVED },
+      mutations: {
+        updateSaveStatus(state, status) {
+          state.saveStatus = status;
+        }
+      },
+      getters: {
+        getSaveStatus: state => state.saveStatus
+      }
+    });
+  }
+
+  getState() {
+    // Exclude our internal module from the state being saved
+    // eslint-disable-next-line no-unused-vars
+    const { __tera_file_sync, ...stateToSave } = this.store.state;
+    return stateToSave;
+  }
+
+  replaceState(newState) {
+    // We merge to ensure our internal module isn't overwritten
+    this.store.replaceState({
+      ...this.store.state,
+      ...newState
+    });
+  }
+
+  updateSaveStatus(status) {
+    this.store.commit('__tera_file_sync/updateSaveStatus', status);
+  }
+
+  subscribe(callback) {
+    this.unsubscribe = this.store.subscribe((mutation) => {
+      // Ignore our own status mutations
+      if (mutation.type.startsWith('__tera_file_sync/')) return;
+      callback(mutation);
+    });
+  }
+
+  destroy() {
+    super.destroy();
+    if (this.store.hasModule('__tera_file_sync')) {
+      this.store.unregisterModule('__tera_file_sync');
+      debugLog('Unregistered Vuex module.');
+    }
+  }
+}
+
+/**
+ * @class
+ * @description Adapter for Pinia stores.
+ * @extends StoreAdapter
+ */
+class PiniaAdapter extends StoreAdapter {
+  setup() {
+    debugLog('Setting up Pinia adapter.');
+    // For Pinia, we expect the user to add `saveStatus` to their store's state.
+    if (this.store.saveStatus === undefined) {
+      throw new Error("Pinia store must have a 'saveStatus' property in its state for TERA File Sync to work.");
+    }
+  }
+
+  getState() {
+    // Exclude our internal property from the state being saved
+    // eslint-disable-next-line no-unused-vars
+    const { saveStatus, ...stateToSave } = this.store.$state;
+    return stateToSave;
+  }
+
+  replaceState(newState) {
+    // $patch is the idiomatic way to update Pinia state
+    this.store.$patch(newState);
+  }
+
+  updateSaveStatus(status) {
+    // Direct mutation or an action is fine for Pinia. Direct is simpler here.
+    this.store.saveStatus = status;
+  }
+
+  subscribe(callback) {
+    this.unsubscribe = this.store.$subscribe((mutation) => {
+      // Pinia's subscription API can trigger for direct changes to `saveStatus`.
+      // We check the mutation's target to avoid feedback loops.
+      if (mutation.events && mutation.events.key === 'saveStatus') return;
+      callback(mutation);
+    });
+  }
+}
+
+/**
  * @class TeraFileSyncPlugin
  * @description Plugin class for syncing Vuex store state with TERA JSON files
  */
@@ -237,18 +369,24 @@ class TeraFileSyncPlugin {
    * @param {TeraPluginConfig} [config=DEFAULT_CONFIG] - Plugin configuration
    * @throws {Error} If configuration is invalid
    */
-  constructor(config = DEFAULT_CONFIG) {
-    const mergedConfig = { ...DEFAULT_CONFIG, ...config }
-    validateConfig(mergedConfig)
+  constructor(config, adapter) {
+    const mergedConfig = { ...DEFAULT_CONFIG, ...config };
+    validateConfig(mergedConfig);
 
-    this.config = mergedConfig
+    if (!(adapter instanceof StoreAdapter)) {
+      throw new Error("A valid store adapter (VuexAdapter or PiniaAdapter) must be provided.");
+    }
+
+    this.config = mergedConfig;
+    this.adapter = adapter;
+    this.adapter.setup(); // Set up the store (register module, etc.)
+
     this.initialized = false
     this.teraReady = false
     this.vueInstance = null
     this.userId = null
     this.saveInProgress = false
     this.autoSaveInterval = null
-    this.store = null
     this.keydownHandler = this.handleKeyDown.bind(this)
     this.hasShownInitialAlert = false
     this.saveStatus = SAVE_STATUS.SAVED
@@ -264,7 +402,7 @@ class TeraFileSyncPlugin {
     if ((event.ctrlKey || event.metaKey) && event.key === 's') {
       event.preventDefault(); // Prevent the browser's save dialog
       debugLog('Ctrl+S hotkey detected, saving state');
-      this.saveStateToFile(this.store.state).then(success => {
+      this.saveStateToFile().then(success => {
         if (success) {
           debugLog('Save completed via hotkey');
         }
@@ -365,14 +503,11 @@ class TeraFileSyncPlugin {
    * @param {string} status - The new save status
    */
   updateSaveStatus(status) {
-    if (!this.store) return;
-
     debugLog(`Updating save status: ${status}`);
     this.saveStatus = status;
-
-    // Commit the status to the store
-    this.store.commit('__tera_file_sync/updateSaveStatus', status);
+    this.adapter.updateSaveStatus(status);
   }
+
 
   /**
    * Gets the storage file name for the current user
@@ -443,7 +578,7 @@ class TeraFileSyncPlugin {
       // Save new file with default state
       await pRetry(async () => {
         debugLog("Saving default state to newly created file...")
-        await newFile.setContents(this.store.state);
+        await newFile.setContents(this.adapter.getState());
       }, {
         retries: 2,
         minTimeout: 200,
@@ -543,10 +678,7 @@ class TeraFileSyncPlugin {
 
       if (fileData) {
         const parsedState = objectToMapSet(fileData);
-        this.store.replaceState({
-          ...this.store.state,
-          ...parsedState
-        });
+        this.adapter.replaceState(parsedState);
         debugLog('Store state replaced from file data.');
         this.updateSaveStatus(SAVE_STATUS.SAVED);
         return true;
@@ -571,14 +703,15 @@ class TeraFileSyncPlugin {
   /**
    * Saves state to JSON file
    * @async
-   * @param {Object} state - The state to save
    * @returns {Promise<boolean>} Whether the save was successful
    */
-  async saveStateToFile(state) {
+  async saveStateToFile() {
     if (this.saveInProgress) {
       debugLog('Save already in progress, skipping')
       return false
     }
+
+    const state = this.adapter.getState();
 
     try {
       let fileName;
@@ -634,7 +767,7 @@ class TeraFileSyncPlugin {
    * @param {Object} [options={}] - Initialization options
    * @param {boolean} [options.loadImmediately=true] - Whether to load from file immediately
    */
-  async initializeState(store, { loadImmediately = true } = {}) {
+  async initializeState({ loadImmediately = true } = {}) {
     if (!this.teraReady || !this.vueInstance || !this.vueInstance.$tera) {
       debugLog('TERA not ready, skipping initialization')
       return
@@ -697,7 +830,7 @@ class TeraFileSyncPlugin {
     this.autoSaveInterval = setInterval(() => {
       if (this.saveStatus !== SAVE_STATUS.SAVED) {
         debugLog('Auto-save triggered')
-        this.saveStateToFile(this.store.state)
+        this.saveStateToFile()
       } else {
         debugLog('Auto-save skipped - no changes detected')
       }
@@ -706,15 +839,11 @@ class TeraFileSyncPlugin {
 
   /**
    * Sets up state change tracking
-   * @param {Object} store - Vuex store instance
    */
-  setupStateChangeTracking(store) {
+  setupStateChangeTracking() {
     // Subscribe to store mutations to track changes
-    store.subscribe((mutation) => {
-      // Ignore our own save status mutations
-      if (mutation.type === '__tera_file_sync/updateSaveStatus') return;
-
-      if (this.saveStatus !== SAVE_STATUS.SAVING ) {
+    this.adapter.subscribe(() => {
+      if (this.saveStatus !== SAVE_STATUS.SAVING) {
         this.updateSaveStatus(SAVE_STATUS.UNSAVED);
       }
     });
@@ -725,7 +854,7 @@ class TeraFileSyncPlugin {
    * This json file will then also be set to be the pointed to file
    * in `temp`
    */
-  async setStateFromPromptedJsonFile(store) {
+  async setStateFromPromptedJsonFile() {
     try {
       // Prompt user for file
       const projectFile = await this.vueInstance.$tera.selectProjectFile({
@@ -759,10 +888,7 @@ class TeraFileSyncPlugin {
 
       // Update state
       const parsedState = objectToMapSet(fileData);
-      store.replaceState({
-        ...store.state,
-        ...parsedState
-      });
+      this.adapter.replaceState(parsedState);
 
       // Replace file path with new file path
       const filePath = projectFile.path;
@@ -775,6 +901,69 @@ class TeraFileSyncPlugin {
       // Consider resetting the save status or other recovery actions here
       this.updateSaveStatus(SAVE_STATUS.UNSAVED);
     }
+  }
+
+  /**
+   * Sets the TERA ready state and triggers initial load
+   * @async
+   */
+  async setTeraReady() {
+    validateVueInstance(this.vueInstance);
+    this.teraReady = true;
+    await this.initializeState({ loadImmediately: this.config.loadImmediately });
+    this.setupAutoSave();
+    this.setupStateChangeTracking();
+  }
+
+  /**
+   * Sets the Vue instance
+   * @param {Object} instance - Vue instance
+   * @throws {Error} If Vue instance is invalid
+   */
+  setVueInstance(instance) {
+    this.vueInstance = instance
+  }
+
+  /**
+   * Manually saves the current state to file
+   * @async
+   * @returns {Promise<boolean>} Whether the save was successful
+   */
+  async saveState() {
+    return await this.saveStateToFile()
+  }
+
+  /**
+   * Gets the current save status
+   * @returns {string} The current save status
+   */
+  async getSaveStatus() {
+    return this.saveStatus;
+  }
+
+  /**
+   * Prompt the user for a new data json file
+   * @returns {Promise<void>}
+   */
+  async promptForNewJsonFile() {
+    return await this.setStateFromPromptedJsonFile()
+  }
+
+  /**
+   * Cleans up the plugin
+   */
+  destroy() {
+    if (this.autoSaveInterval) {
+      clearInterval(this.autoSaveInterval)
+    }
+    // Unregister hotkey listener
+    this.unregisterHotkeys();
+    // Unregister the beforeunload listener
+    this.unregisterBeforeUnload();
+    // Unregister store module if possible
+    this.adapter.destroy();
+    this.initialized = false
+    this.teraReady = false
   }
 
   /**
@@ -814,149 +1003,32 @@ class TeraFileSyncPlugin {
       return null;
     }
   }
-
-  /**
-   * Creates the Vuex plugin
-   * @returns {Function} Plugin installation function
-   */
-  createPlugin() {
-    return (store) => {
-      this.store = store
-
-      // Register the module for save status
-      store.registerModule('__tera_file_sync', {
-        namespaced: true,
-        state: {
-          saveStatus: SAVE_STATUS.SAVED
-        },
-        mutations: {
-          updateSaveStatus(state, status) {
-            state.saveStatus = status;
-          }
-        },
-        getters: {
-          getSaveStatus: state => state.saveStatus
-        }
-      });
-
-      // Set up change tracking
-      this.setupStateChangeTracking(store);
-
-      return {
-        /**
-         * Sets the TERA ready state and triggers initial load
-         * @async
-         */
-        setTeraReady: async () => {
-          validateVueInstance(this.vueInstance)
-          this.teraReady = true
-          await this.initializeState(store, { loadImmediately: this.config.loadImmediately })
-          // Enable autosave
-          this.setupAutoSave()
-        },
-
-        /**
-         * Sets the Vue instance
-         * @param {Object} instance - Vue instance
-         * @throws {Error} If Vue instance is invalid
-         */
-        setVueInstance: (instance) => {
-          this.vueInstance = instance
-        },
-
-        /**
-         * Manually saves the current state to file
-         * @async
-         * @returns {Promise<boolean>} Whether the save was successful
-         */
-        saveState: async () => {
-          return await this.saveStateToFile(store.state)
-        },
-
-        /**
-         * Gets the current save status
-         * @returns {string} The current save status
-         */
-        getSaveStatus: () => {
-          return this.saveStatus;
-        },
-
-        /**
-         * Prompt the user for a new data json file
-         * @returns {Promise<void>}
-         */
-        promptForNewJsonFile: async () => {
-          return await this.setStateFromPromptedJsonFile(this.store)
-        },
-
-        /**
-         * Retrieves metadata for the storage file, such as last modified date.
-         * @async
-         * @returns {Promise<Object|null>} Metadata object (e.g., { lastModified: Date }) or null.
-         */
-        getFileMetadata: async () => {
-          return await this.getFileMetadata();
-        },
-
-        /**
-         * Manually triggers a load from the file and replaces the store's state.
-         * Use this if you initialized the plugin with `loadImmediately: false`.
-         * @async
-         * @returns {Promise<boolean>} True if successful.
-         */
-        loadStateFromFile: async () => {
-          // The public method name is still `loadStateFromFile` as you requested,
-          // but it now calls our clean, internal, single-responsibility function.
-          return await this.loadAndApplyStateFromFile();
-        },
-
-        /**
-         * Cleans up the plugin
-         */
-        destroy: () => {
-          if (this.autoSaveInterval) {
-            clearInterval(this.autoSaveInterval)
-          }
-          // Unregister hotkey listener
-          this.unregisterHotkeys();
-          // Unregister the beforeunload listener
-          this.unregisterBeforeUnload();
-          // Unregister store module if possible
-          if (store.hasModule('__tera_file_sync')) {
-            store.unregisterModule('__tera_file_sync');
-          }
-          this.initialized = false
-          this.teraReady = false
-        }
-      }
-    }
-  }
 }
 
 /**
- * Creates a new TERA file sync plugin instance
- * @param {string} keyPrefix - Prefix for storage keys and filenames
- * @param {boolean} [isSeparateStateForEachUser=false] - Whether to maintain separate state for each user
- * @param {Object} [options={}] - Additional plugin options
- * @param {number} [options.autoSaveIntervalMinutes=10] - Auto-save interval in minutes (0 to disable)
- * @param {boolean} [options.showInitialAlert=false] - Whether to show initial alert about manual saving
- * @param {boolean} [options.enableSaveHotkey=true] - Whether to enable Ctrl+S hotkey for saving
- * @returns {Function} Plugin installation function
- * @throws {Error} If parameters are invalid
+ * Creates and initializes a new TERA file sync manager.
+ * This is the main entry point for using the plugin.
+ *
+ * @param {TeraPluginConfig} config - Plugin configuration.
+ * @param {Object} store - The Vuex or Pinia store instance.
+ * @returns {TeraFileSyncPlugin} The initialized plugin instance with its public API.
  */
-const createSyncPlugin = (keyPrefix, isSeparateStateForEachUser = false, options = {}) => {
-  if (typeof keyPrefix !== 'string') {
-    throw new Error('keyPrefix must be a string')
+const createTeraSync = (config, store) => {
+  let adapter;
+
+  // "Sniff" the store type to determine which adapter to use
+  if (store && typeof store.$id === 'string' && typeof store.$patch === 'function') {
+    debugLog('Detected Pinia store.');
+    adapter = new PiniaAdapter(store);
+  } else if (store && typeof store.commit === 'function' && typeof store.subscribe === 'function') {
+    debugLog('Detected Vuex store.');
+    adapter = new VuexAdapter(store);
+  } else {
+    throw new Error('Could not determine store type. Please provide a valid Vuex or Pinia store instance.');
   }
 
-  const config = {
-    keyPrefix,
-    isSeparateStateForEachUser,
-    ...options
-  }
-
-  const plugin = new TeraFileSyncPlugin(config)
-  return plugin.createPlugin()
+  const plugin = new TeraFileSyncPlugin(config, adapter);
+  return plugin;
 };
 
-export { createSyncPlugin };
+export { createTeraSync };
