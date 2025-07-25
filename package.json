@@ -1,6 +1,6 @@
 {
   "name": "@iebh/vuex-tera-json",
-  "version": "2.3.2",
+  "version": "2.3.3",
   "publishConfig": {
     "access": "public"
   },
@@ -44,14 +44,6 @@
       "push": true,
       "requireCleanWorkingDir": false,
       "tag": true
-    },
-    "hooks": {
-      "before:init": "git reset HEAD -- api.md docs/ dist/",
-      "before:bump": [
-        "npm run build",
-        "git add -f api.md docs/ dist/"
-      ],
-      "after:release": "git rm --cached -r dist && echo 'Untracked dist/ for subsequent commits.'"
     },
     "plugins": {
       "@release-it/conventional-changelog": {
