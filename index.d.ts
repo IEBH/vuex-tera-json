@@ -1,5 +1,3 @@
-// Type definitions for your TERA File Sync module
-
 // --- Configuration and State Types ---
 
 /**

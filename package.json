@@ -5,7 +5,7 @@
     "access": "public"
   },
   "description": "A Vuex plugin for syncing state with Tera (using JSON files)",
-  "main": "index.js",
+  "main": "src/index.js",
   "types": "index.d.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
