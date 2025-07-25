@@ -45,6 +45,15 @@ export interface TeraPluginConfig {
    * @default true
    */
   loadImmediately?: boolean;
+
+  /**
+   * A function that is called before a save is attempted.
+   * If the function returns `true`, the save proceeds.
+   * If it returns a string, the save is aborted and the string is shown as a notification to the user.
+   * If it returns any other value (e.g., `false`), the save is aborted silently.
+   * @default () => true
+   */
+    onBeforeSave?: () => boolean | string;
 }
 
 /**

@@ -14,6 +14,8 @@ const DEBUG = true
  * @property {number} autoSaveIntervalMinutes - Auto-save interval in minutes (0 to disable)
  * @property {boolean} showInitialAlert - Whether to show initial alert about manual saving
  * @property {boolean} enableSaveHotkey - Whether to enable Ctrl+S hotkey for saving
+ * @property {boolean} loadImmediately - Whether to load state immediately on initialization
+ * @property {Function} onBeforeSave - A function called before saving. If it returns anything other than `true`, the save is aborted.
  */
 
 /**
@@ -32,7 +34,10 @@ const DEFAULT_CONFIG = {
   // Whether ctrl+s to save is enabled
   enableSaveHotkey: true,
   // Whether the state should be loaded immediately or done manually
-  loadImmediately: true
+  loadImmediately: true,
+  // A function that is called before a save is attempted. If it returns anything other than `true`, the save is aborted.
+  // If it returns a string, that string is shown as a notification.
+  onBeforeSave: () => true,
 }
 
 /**
@@ -90,6 +95,10 @@ const validateConfig = (config) => {
 
   if (typeof config.loadImmediately !== 'boolean') {
     throw new Error('loadImmediately must be a boolean')
+  }
+
+  if (typeof config.onBeforeSave !== 'function') {
+    throw new Error('onBeforeSave must be a function')
   }
 }
 
@@ -749,6 +758,19 @@ class TeraFileSyncPlugin {
    * @returns {Promise<boolean>} Whether the save was successful
    */
   async saveStateToFile() {
+    // --- Pre-save validation hook ---
+    if (typeof this.config.onBeforeSave === 'function') {
+      const validationResult = this.config.onBeforeSave();
+      if (validationResult !== true) {
+        debugLog('Save prevented by onBeforeSave hook. Reason:', validationResult);
+        // If the hook returns a string, show it as a notification.
+        if (typeof validationResult === 'string' && validationResult.length > 0) {
+          showNotification(validationResult);
+        }
+        return false; // Abort the save
+      }
+    }
+
     if (this.saveInProgress) {
       debugLog('Save already in progress, skipping')
       return false
