@@ -1,6 +1,6 @@
 {
   "name": "@iebh/vuex-tera-json",
-  "version": "2.4.0",
+  "version": "2.4.1",
   "publishConfig": {
     "access": "public"
   },
@@ -15,7 +15,6 @@
     "build": "npm run clean && tsc",
     "prepare": "npm run build",
     "lint": "eslint --ext .ts,.vue .",
-
     "test": "echo \"Error: no test specified\" && exit 1",
     "release": "release-it"
   },

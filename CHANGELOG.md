@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.4.1](https://github.com/IEBH/vuex-tera-json/compare/TS-CONVERSION...2.4.1) (2025-08-01)
+
+
+### chore
+
+* Version bump 2.4.0 for TS version ([fc19bb9](https://github.com/IEBH/vuex-tera-json/commit/fc19bb9de6624465c7bc3abe08f467ccfa6aa0fa))
+
 ## [2.3.3](https://github.com/IEBH/vuex-tera-json/compare/2.1.5...2.3.3) (2025-07-25)
 
 
