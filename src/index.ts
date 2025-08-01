@@ -494,7 +494,7 @@ class PiniaAdapter extends StoreAdapter {
   }
 
   getState(): any {
-    const { _saveStatus, ...stateToSave } = this.store.$state;
+    const { saveStatus: _saveStatus, ...stateToSave } = this.store.$state;
     return stateToSave;
   }
 
