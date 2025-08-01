@@ -1,6 +1,7 @@
 // index.ts
 import { nanoid } from 'nanoid';
 import pRetry from 'p-retry';
+import * as api from './helpers/api';
 
 // --- Configuration and State Types ---
 
@@ -570,6 +571,13 @@ class TeraFileSyncPlugin implements TeraFileSync {
   private hasShownInitialAlert: boolean = false;
   private _saveStatus: SaveStatus = SaveStatus.SAVED;
   private beforeUnloadHandler: (event: BeforeUnloadEvent) => string | undefined;
+  private get projectId(): string {
+    if (!this.vueInstance?.$tera?.project?.id) {
+      throw new Error("TERA project context is missing.");
+    }
+    return String(this.vueInstance.$tera.project.id);
+  }
+
 
   public get saveStatus(): SaveStatus {
     return this._saveStatus;
@@ -647,7 +655,7 @@ class TeraFileSyncPlugin implements TeraFileSync {
   public async getFileMetadata(): Promise<FileMetadata | null> {
     if (!this.vueInstance) return null;
     try {
-      const fileName = await this.getStorageFileName({ returnFullPath: false });
+      const fileName = await this.getStorageFileName();
       if (!fileName) {
         debugLog('Cannot get metadata, no storage file name available.');
         return null;
@@ -786,7 +794,7 @@ class TeraFileSyncPlugin implements TeraFileSync {
     return `${this.config.keyPrefix}`;
   }
 
-  private async getStorageFileName({ returnFullPath = true } = {}): Promise<string> {
+  private async getStorageFileName({ returnFullPath = false } = {}): Promise<string> {
     if (!this.vueInstance?.$tera?.project?.id) {
         throw new Error("Error getting fileStorageName: TERA project context is missing.");
     }
@@ -837,8 +845,7 @@ class TeraFileSyncPlugin implements TeraFileSync {
         fileName = await this.getStorageFileName();
         debugLog(`Loading state from file: ${fileName}`);
         if (!fileName) throw new Error('No file name returned when expected!');
-        const encodedFileName = btoa(fileName);
-        fileContent = await this.vueInstance!.$tera.getProjectFileContents(encodedFileName, { format: 'json' });
+        fileContent = await api.getFileContent(this.projectId, fileName);
       }, {
         retries: 3,
         minTimeout: 1000,
@@ -893,9 +900,8 @@ class TeraFileSyncPlugin implements TeraFileSync {
       await pRetry(async () => {
         fileName = await this.getStorageFileName();
         if (!fileName) throw new Error('No fileName returned');
-        const encodedFileName = btoa(fileName);
         const stateToSave = mapSetToObject(state);
-        await this.vueInstance!.$tera.setProjectFileContents(encodedFileName, stateToSave, { format: 'json' });
+        await api.saveFileContent(this.projectId, fileName, stateToSave);
       }, {
         retries: 3,
         minTimeout: 1000,
