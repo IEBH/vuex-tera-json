@@ -440,6 +440,9 @@ class VuexAdapter extends StoreAdapter {
           state.saveStatus = status;
         },
       },
+      getters: {
+        getSaveStatus: (state: { saveStatus: SaveStatus }) => state.saveStatus
+      }
     });
   }
 
