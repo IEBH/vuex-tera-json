@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.4.2](https://github.com/IEBH/vuex-tera-json/compare/2.4.1...2.4.2) (2025-08-01)
+
+
+### fix
+
+* Add missing getter ([d4d9177](https://github.com/IEBH/vuex-tera-json/commit/d4d9177b2c8bcc342dac17d039ae235d6bf57503))
+
 ## [2.4.1](https://github.com/IEBH/vuex-tera-json/compare/TS-CONVERSION...2.4.1) (2025-08-01)
 
 
