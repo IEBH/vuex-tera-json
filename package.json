@@ -27,7 +27,8 @@
   "author": "connorf25",
   "license": "MIT",
   "peerDependencies": {
-    "vuex": "^3.0.0 || ^4.0.0"
+    "vuex": "^3.0.0 || ^4.0.0",
+    "@iebh/tera-fy": "^2.2.12"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^7.13.1",
