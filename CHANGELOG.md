@@ -1,5 +1,12 @@
 # Changelog
 
+# [3.0.0](https://github.com/IEBH/vuex-tera-json/compare/tera-io...3.0.0) (2025-08-07)
+
+
+### major
+
+* Finish tera-io implementation + refactor ([55b573f](https://github.com/IEBH/vuex-tera-json/commit/55b573f12d7b6601f41350b460fc38b65c1509bc))
+
 ## [2.4.2](https://github.com/IEBH/vuex-tera-json/compare/2.4.1...2.4.2) (2025-08-01)
 
 
