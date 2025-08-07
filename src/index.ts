@@ -113,6 +113,8 @@ export interface TeraApi {
     temp: Record<string, any>;
   };
   getUser(): Promise<TeraUser>;
+  getCredentials(): object;
+  getKindeToken(): string;
   getProjectFile(fileName: string, options?: { cache: boolean }): Promise<TeraProjectFile | null>;
   getProjectFileContents(encodedFileName: string, options?: { format: 'json' | 'text' }): Promise<any>;
   setProjectFileContents(encodedFileName: string, data: any, options?: { format: 'json' }): Promise<void>;
@@ -845,7 +847,8 @@ class TeraFileSyncPlugin implements TeraFileSync {
         fileName = await this.getStorageFileName();
         debugLog(`Loading state from file: ${fileName}`);
         if (!fileName) throw new Error('No file name returned when expected!');
-        fileContent = await api.getFileContent(this.projectId, fileName);
+        if (!this.vueInstance) throw new Error('this.vueInstance expected!');
+        fileContent = await api.getFileContent(this.projectId, fileName, this.vueInstance.$tera);
       }, {
         retries: 3,
         minTimeout: 1000,
@@ -901,7 +904,8 @@ class TeraFileSyncPlugin implements TeraFileSync {
         fileName = await this.getStorageFileName();
         if (!fileName) throw new Error('No fileName returned');
         const stateToSave = mapSetToObject(state);
-        await api.saveFileContent(this.projectId, fileName, stateToSave);
+        if (!this.vueInstance) throw new Error('this.vueInstance expected!');
+        await api.saveFileContent(this.projectId, fileName, stateToSave, this.vueInstance?.$tera);
       }, {
         retries: 3,
         minTimeout: 1000,

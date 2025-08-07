@@ -1,9 +1,16 @@
 // api.ts
 
+import { TeraApi } from ".."; // Assuming TeraApi is imported from a parent directory index
+
 /**
  * The base URL for the TERA IO API endpoints.
  */
-const API_BASE_URL = 'https://tera-tools.com/api/io';
+// Prod
+// const API_BASE_URL = 'https://tera-tools.com/api/io';
+// Dev
+// const API_BASE_URL = 'https://dev-tera-io.tera-997.workers.dev';
+// Localhost
+const API_BASE_URL = 'http://localhost:8787';
 
 /**
  * Represents the structure of a file object returned by the list endpoint.
@@ -25,16 +32,57 @@ function encodeFilePath(path: string): string {
 }
 
 /**
+ * A centralized fetch wrapper that adds the authentication token to every request.
+ * @param endpoint The API endpoint to call (e.g., /projects/some-id/files).
+ * @param teraInstance The main TeraApi instance to get the token from.
+ * @param options Standard RequestInit options for fetch (method, body, etc.).
+ * @returns A promise that resolves to the raw Fetch Response.
+ */
+async function apiFetch(
+  endpoint: string,
+  teraInstance: TeraApi,
+  options: RequestInit = {}
+): Promise<Response> {
+  const token = await teraInstance.getKindeToken();
+  if (!token) {
+    throw new Error("Authentication token is missing. Please log in again.");
+  }
+
+  // Prepare the default headers with authentication
+  const defaultHeaders = new Headers({
+    'Authentication': `Bearer ${token}`
+  });
+
+  // Merge any custom headers from the options
+  if (options.headers) {
+    const customHeaders = new Headers(options.headers);
+    customHeaders.forEach((value, key) => {
+      // Use set() to allow overriding, or append() if multiple values for a header are allowed
+      defaultHeaders.set(key, value);
+    });
+  }
+
+  const fetchOptions: RequestInit = {
+    ...options,
+    headers: defaultHeaders,
+  };
+
+  return fetch(`${API_BASE_URL}${endpoint}`, fetchOptions);
+}
+
+
+/**
  * Retrieves the content of a specific file from a project's storage.
  * @param projectId The UUID of the project.
  * @param filePath The path/name of the file to retrieve.
- * @returns A promise that resolves to the parsed JSON content of the file, or `null` if the file is not found (404).
- * @throws An error for non-404 server errors or network failures.
+ * @param teraInstance The TeraApi instance for authentication.
+ * @returns A promise that resolves to the parsed JSON content of the file, or `null` if not found.
  */
-export async function getFileContent(projectId: string, filePath: string): Promise<any | null> {
+export async function getFileContent(projectId: string, filePath: string, teraInstance: TeraApi): Promise<any | null> {
   const safeFilePath = encodeFilePath(filePath);
+  const endpoint = `/projects/${projectId}/files/${safeFilePath}`;
 
-  const response = await fetch(`${API_BASE_URL}/projects/${projectId}/files/${safeFilePath}`);
+  const response = await apiFetch(endpoint, teraInstance);
 
   if (response.status === 404) {
     return null; // File not found is a normal, handled case.
@@ -45,7 +93,6 @@ export async function getFileContent(projectId: string, filePath: string): Promi
   }
 
   try {
-    console.log('getFileContent response:', response)
     return await response.json();
   } catch (e) {
     throw new Error(`Failed to parse JSON content from file "${filePath}".`);
@@ -58,17 +105,20 @@ export async function getFileContent(projectId: string, filePath: string): Promi
  * @param projectId The UUID of the project.
  * @param filePath The path/name of the file to save.
  * @param content The JavaScript object to be saved as JSON.
+ * @param teraInstance The TeraApi instance for authentication.
  * @returns A promise that resolves when the operation is complete.
  * @throws An error if the network request fails or the server returns an error.
  */
-export async function saveFileContent(projectId: string, filePath: string, content: any): Promise<void> {
+export async function saveFileContent(projectId: string, filePath: string, content: any, teraInstance: TeraApi): Promise<void> {
   const safeFilePath = encodeFilePath(filePath);
+  // ?overwrite=1 indicates to overwrite the file
+  const endpoint = `/projects/${projectId}/files/${safeFilePath}?overwrite=1`;
 
   const formData = new FormData();
   const file = new File([JSON.stringify(content, null, 2)], filePath, { type: 'application/json' });
   formData.append('file', file);
 
-  const response = await fetch(`${API_BASE_URL}/projects/${projectId}/files/${safeFilePath}`, {
+  const response = await apiFetch(endpoint, teraInstance, {
     method: 'PUT',
     body: formData,
   });
@@ -82,11 +132,15 @@ export async function saveFileContent(projectId: string, filePath: string, conte
 /**
  * Fetches a list of all files at the root of a project's storage.
  * @param projectId The UUID of the project.
+ * @param teraInstance The TeraApi instance for authentication.
  * @returns A promise that resolves to an array of file objects.
  * @throws An error if the network request fails or the server returns an error.
  */
-export async function getProjectFiles(projectId: string): Promise<ApiFile[]> {
-    const response = await fetch(`${API_BASE_URL}/projects/${projectId}/files/`);
+export async function getProjectFiles(projectId: string, teraInstance: TeraApi): Promise<ApiFile[]> {
+    const endpoint = `/projects/${projectId}/files/`;
+
+    const response = await apiFetch(endpoint, teraInstance);
+
     if (!response.ok) {
         throw new Error(`Failed to list project files. Status: ${response.status}`);
     }
