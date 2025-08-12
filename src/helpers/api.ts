@@ -5,12 +5,13 @@ import { TeraApi } from ".."; // Assuming TeraApi is imported from a parent dire
 /**
  * The base URL for the TERA IO API endpoints.
  */
+// TODO: Change to prod url when deployed
 // Prod
 // const API_BASE_URL = 'https://tera-tools.com/api/io';
 // Dev
-// const API_BASE_URL = 'https://dev-tera-io.tera-997.workers.dev';
+const API_BASE_URL = 'https://dev-tera-io.tera-997.workers.dev';
 // Localhost
-const API_BASE_URL = 'http://localhost:8787';
+// const API_BASE_URL = 'http://localhost:8787';
 
 /**
  * Represents the structure of a file object returned by the list endpoint.
