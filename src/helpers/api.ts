@@ -10,8 +10,10 @@ import { TeraApi } from ".."; // Assuming TeraApi is imported from a parent dire
 // const API_BASE_URL = 'https://tera-tools.com/api/io';
 // Dev
 // const API_BASE_URL = 'https://dev-tera-io.tera-997.workers.dev';
+// Dev ECH fix version
+const API_BASE_URL = 'https://dev-worker.tera-tools.com/api/io';
 // Specific version
-const API_BASE_URL = 'https://546d6f12-tera-io.tera-997.workers.dev/';
+// const API_BASE_URL = 'https://546d6f12-tera-io.tera-997.workers.dev';
 // Localhost
 // const API_BASE_URL = 'http://localhost:8787';
 
