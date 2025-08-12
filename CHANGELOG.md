@@ -1,5 +1,20 @@
 # Changelog
 
+## [3.0.1](https://github.com/IEBH/vuex-tera-json/compare/3.0.0...3.0.1) (2025-08-12)
+
+
+### chore
+
+* Add tera-fy as peer dependency ([53c6fdb](https://github.com/IEBH/vuex-tera-json/commit/53c6fdb2ebe3e0e85053c19055bb5119c8674227))
+
+### devops
+
+* Add watch command ([f4c95d2](https://github.com/IEBH/vuex-tera-json/commit/f4c95d2e1d92303fcc9f16cf7fbd89dc4e360d7a))
+
+### fix
+
+* Point to dev remote endpoint ([c4fedf3](https://github.com/IEBH/vuex-tera-json/commit/c4fedf32dbd326f1f62fcf337f5bb4bf886e875f))
+
 # [3.0.0](https://github.com/IEBH/vuex-tera-json/compare/tera-io...3.0.0) (2025-08-07)
 
 
