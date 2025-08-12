@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.0.2](https://github.com/IEBH/vuex-tera-json/compare/3.0.1...3.0.2) (2025-08-12)
+
+
+### chore
+
+* Use fixed version of tera-io endpoint ([ac0ea1c](https://github.com/IEBH/vuex-tera-json/commit/ac0ea1c50c1c3792ea929691fcd987616497c75e))
+
 ## [3.0.1](https://github.com/IEBH/vuex-tera-json/compare/3.0.0...3.0.1) (2025-08-12)
 
 
