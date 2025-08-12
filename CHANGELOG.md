@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.0.3](https://github.com/IEBH/vuex-tera-json/compare/3.0.2...3.0.3) (2025-08-12)
+
+
+### chore
+
+* Use proxy worker dev endpoint to fix Bond ECH issue ([ec396cc](https://github.com/IEBH/vuex-tera-json/commit/ec396cce3e1af502c586a07a68223e1be42df350))
+
 ## [3.0.2](https://github.com/IEBH/vuex-tera-json/compare/3.0.1...3.0.2) (2025-08-12)
 
 
