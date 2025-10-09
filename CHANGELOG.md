@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.0.5](https://github.com/IEBH/vuex-tera-json/compare/3.0.4...3.0.5) (2025-10-09)
+
+
+### temp
+
+* Revert json filtering until no files showing is fixed ([fc92453](https://github.com/IEBH/vuex-tera-json/commit/fc92453bb3d0533626dfdc6a5f16a6fa8f13c15d))
+
 ## [3.0.4](https://github.com/IEBH/vuex-tera-json/compare/3.0.3...3.0.4) (2025-10-09)
 
 
