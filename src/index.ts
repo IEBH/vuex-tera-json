@@ -92,6 +92,9 @@ export interface TeraUiProgressOptions {
 export interface TeraSelectProjectFileOptions {
   title: string;
   showHiddenFiles: boolean;
+  filters: {
+    ext: string;
+  }
 }
 
 /**
@@ -995,6 +998,9 @@ class TeraFileSyncPlugin implements TeraFileSync {
       const projectFile = await this.vueInstance.$tera.selectProjectFile({
         title: 'Load JSON file',
         showHiddenFiles: true,
+        filters: {
+          ext: 'json', // Only show files with the 'json' extension
+      },
       });
       if (!projectFile) {
         debugLog('User cancelled file selection.');
