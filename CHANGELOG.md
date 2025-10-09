@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.0.4](https://github.com/IEBH/vuex-tera-json/compare/3.0.3...3.0.4) (2025-10-09)
+
+
+### feat
+
+* Filter by json ext in json recovery mode ([e231f0f](https://github.com/IEBH/vuex-tera-json/commit/e231f0f98c196429ffe773b73204811a869f51f9))
+
 ## [3.0.3](https://github.com/IEBH/vuex-tera-json/compare/3.0.2...3.0.3) (2025-08-12)
 
 
