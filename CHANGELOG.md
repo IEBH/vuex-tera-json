@@ -1,5 +1,16 @@
 # Changelog
 
+## [3.0.6](https://github.com/IEBH/vuex-tera-json/compare/3.0.5...3.0.6) (2025-10-31)
+
+
+### feat
+
+* Re-implement ext filtering with upstream TERA fixes ([63408d5](https://github.com/IEBH/vuex-tera-json/commit/63408d518bb11fd5eca34e57f7225394107932a9))
+
+### temp
+
+* Revert to old saving/loading system until caching worked out ([f3c84e1](https://github.com/IEBH/vuex-tera-json/commit/f3c84e17279e0a073e103176db6c8de903107a49))
+
 ## [3.0.5](https://github.com/IEBH/vuex-tera-json/compare/3.0.4...3.0.5) (2025-10-09)
 
 
