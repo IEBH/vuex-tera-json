@@ -998,9 +998,9 @@ class TeraFileSyncPlugin implements TeraFileSync {
       const projectFile = await this.vueInstance.$tera.selectProjectFile({
         title: 'Load JSON file',
         showHiddenFiles: true,
-        // filters: {
-        //   ext: 'json', // Only show files with the 'json' extension
-        // },
+        filters: {
+          ext: 'json', // Only show files with the 'json' extension
+        },
       });
       if (!projectFile) {
         debugLog('User cancelled file selection.');
