@@ -1,12 +1,12 @@
 // api.ts
 
-import { TeraApi } from "..";
+import { TeraApi } from "../index.js";
 
-// /**
-//  * The base URL for the TERA IO API endpoints.
-//  */
+/**
+ * The base URL for the TERA IO API endpoints.
+ */
 // Prod
-// const API_BASE_URL = 'https://tera-tools.com/api/io';
+const API_BASE_URL = 'https://tera-tools.com/api/io';
 // Dev
 // const API_BASE_URL = 'https://dev-tera-io.tera-997.workers.dev';
 // Dev ECH fix version
@@ -16,69 +16,63 @@ import { TeraApi } from "..";
 // Localhost
 // const API_BASE_URL = 'http://localhost:8787';
 
-// /**
-//  * Represents the structure of a file object returned by the list endpoint.
-//  */
-// export interface ApiFile {
-//   name: string;
-//   size: number;
-//   modified: string; // ISO 8601 date string
-// }
-
-// TODO: Replace with commented out below version when converting to REST API
-function encodeFilePath(path: string) {
-  if (!/^\/projects\/(.+?)\//.test(path)) throw new Error(`File TERA ID "${path}" is invalid (encoding)`);
-  return btoa(path.replace(/^\/projects\//, '')).replace(/=+$/, '')
+/**
+ * Represents the structure of a file object returned by the list endpoint.
+ */
+export interface ApiFile {
+  name: string;
+  size: number;
+  modified: string; // ISO 8601 date string
 }
 
-// /**
-//  * Safely encodes a file path for use in a URL.
-//  * It encodes each segment of the path individually, preserving the '/' separators.
-//  * @param path The file path to encode.
-//  * @returns A URL-safe path string.
-//  */
-// function encodeFilePath(path: string): string {
-//   return path.split('/').map(encodeURIComponent).join('/');
-// }
+/**
+ * Safely encodes a file path for use in a URL.
+ * It encodes each segment of the path individually, preserving the '/' separators.
+ * @param path The file path to encode.
+ * @returns A URL-safe path string.
+ */
+function encodeFilePath(path: string): string {
+  return path.split('/').map(encodeURIComponent).join('/');
+}
 
-// /**
-//  * A centralized fetch wrapper that adds the authentication token to every request.
-//  * @param endpoint The API endpoint to call (e.g., /projects/some-id/files).
-//  * @param teraInstance The main TeraApi instance to get the token from.
-//  * @param options Standard RequestInit options for fetch (method, body, etc.).
-//  * @returns A promise that resolves to the raw Fetch Response.
-//  */
-// async function apiFetch(
-//   endpoint: string,
-//   teraInstance: TeraApi,
-//   options: RequestInit = {}
-// ): Promise<Response> {
-//   const token = await teraInstance.getKindeToken();
-//   if (!token) {
-//     throw new Error("Authentication token is missing. Please log in again.");
-//   }
+/**
+ * A centralized fetch wrapper that adds the authentication token to every request.
+ * @param endpoint The API endpoint to call (e.g., /projects/some-id/files).
+ * @param teraInstance The main TeraApi instance to get the token from.
+ * @param options Standard RequestInit options for fetch (method, body, etc.).
+ * @returns A promise that resolves to the raw Fetch Response.
+ */
+async function apiFetch(
+  endpoint: string,
+  teraInstance: TeraApi,
+  options: RequestInit = {}
+): Promise<Response> {
+  const token = await teraInstance.getKindeToken();
+  if (!token) {
+    throw new Error("Authorization token is missing. Please log in again.");
+  }
 
-//   // Prepare the default headers with authentication
-//   const defaultHeaders = new Headers({
-//     'Authentication': `Bearer ${token}`
-//   });
+  // Prepare the default headers with authentication
+  const defaultHeaders = new Headers({
+    'Authorization': `Bearer ${token}`
+  });
 
-//   // Merge any custom headers from the options
-//   if (options.headers) {
-//     const customHeaders = new Headers(options.headers);
-//     customHeaders.forEach((value, key) => {
-//       // Use set() to allow overriding, or append() if multiple values for a header are allowed
-//       defaultHeaders.set(key, value);
-//     });
-//   }
+  // Merge any custom headers from the options
+  if (options.headers) {
+    const customHeaders = new Headers(options.headers);
+    customHeaders.forEach((value, key) => {
+      // Use set() to allow overriding, or append() if multiple values for a header are allowed
+      defaultHeaders.set(key, value);
+    });
+  }
 
-//   const fetchOptions: RequestInit = {
-//     ...options,
-//     headers: defaultHeaders,
-//   };
+  const fetchOptions: RequestInit = {
+    ...options,
+    headers: defaultHeaders,
+  };
 
-//   return fetch(`${API_BASE_URL}${endpoint}`, fetchOptions);
-// }
+  return fetch(`${API_BASE_URL}${endpoint}`, fetchOptions);
+}
 
 
 /**
@@ -89,29 +83,24 @@ function encodeFilePath(path: string) {
  * @returns A promise that resolves to the parsed JSON content of the file, or `null` if not found.
  */
 export async function getFileContent(projectId: string, filePath: string, teraInstance: TeraApi): Promise<any | null> {
-  // TODO: Replace this code with below REST API method when supabase caching issue fixed in TERA
-  console.log(`DEBUG - Getting ${filePath} for project ${projectId}`)
-  const encodedFileName = encodeFilePath(`/projects/${projectId}/${filePath}`);
-  return await teraInstance.getProjectFileContents(encodedFileName, { format: 'json' });
+  const safeFilePath = encodeFilePath(filePath);
+  const endpoint = `/projects/${projectId}/files/${safeFilePath}`;
 
-  // const safeFilePath = encodeFilePath(filePath);
-  // const endpoint = `/projects/${projectId}/files/${safeFilePath}`;
+  const response = await apiFetch(endpoint, teraInstance);
 
-  // const response = await apiFetch(endpoint, teraInstance);
+  if (response.status === 404) {
+    return null; // File not found is a normal, handled case.
+  }
 
-  // if (response.status === 404) {
-  //   return null; // File not found is a normal, handled case.
-  // }
+  if (!response.ok) {
+    throw new Error(`Failed to get file content for "${filePath}". Status: ${response.status}`);
+  }
 
-  // if (!response.ok) {
-  //   throw new Error(`Failed to get file content for "${filePath}". Status: ${response.status}`);
-  // }
-
-  // try {
-  //   return await response.json();
-  // } catch (e) {
-  //   throw new Error(`Failed to parse JSON content from file "${filePath}".`);
-  // }
+  try {
+    return await response.json();
+  } catch (e) {
+    throw new Error(`Failed to parse JSON content from file "${filePath}".`);
+  }
 }
 
 /**
@@ -125,28 +114,23 @@ export async function getFileContent(projectId: string, filePath: string, teraIn
  * @throws An error if the network request fails or the server returns an error.
  */
 export async function saveFileContent(projectId: string, filePath: string, content: any, teraInstance: TeraApi): Promise<void> {
-  // TODO: Replace this code with below REST API method when supabase caching issue fixed in TERA
-  console.log(`DEBUG - Saving ${filePath} for project ${projectId}`);
-  const encodedFileName = encodeFilePath(`/projects/${projectId}/${filePath}`);
-  await teraInstance.setProjectFileContents(encodedFileName, content, { format: 'json' });
+  const safeFilePath = encodeFilePath(filePath);
+  // ?overwrite=1 indicates to overwrite the file
+  const endpoint = `/projects/${projectId}/files/${safeFilePath}?overwrite=1`;
 
-  // const safeFilePath = encodeFilePath(filePath);
-  // // ?overwrite=1 indicates to overwrite the file
-  // const endpoint = `/projects/${projectId}/files/${safeFilePath}?overwrite=1`;
+  const formData = new FormData();
+  const file = new File([JSON.stringify(content, null, 2)], filePath, { type: 'application/json' });
+  formData.append('file', file);
 
-  // const formData = new FormData();
-  // const file = new File([JSON.stringify(content, null, 2)], filePath, { type: 'application/json' });
-  // formData.append('file', file);
+  const response = await apiFetch(endpoint, teraInstance, {
+    method: 'PUT',
+    body: formData,
+  });
 
-  // const response = await apiFetch(endpoint, teraInstance, {
-  //   method: 'PUT',
-  //   body: formData,
-  // });
-
-  // if (!response.ok) {
-  //   const errorText = await response.text();
-  //   throw new Error(`Failed to save file content. Status: ${response.status}, Body: ${errorText}`);
-  // }
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to save file content. Status: ${response.status}, Body: ${errorText}`);
+  }
 }
 
 // /**
