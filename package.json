@@ -5,15 +5,31 @@
     "access": "public"
   },
   "description": "A Vuex plugin for syncing state with Tera (using JSON files)",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "./dist/cjs/index.js",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/esm/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/esm/index.d.ts",
+        "default": "./dist/esm/index.js"
+      },
+      "require": {
+        "types": "./dist/cjs/index.d.ts",
+        "default": "./dist/cjs/index.js"
+      }
+    }
+  },
   "files": [
     "dist"
   ],
   "scripts": {
     "clean": "rimraf dist",
-    "build": "npm run clean && tsc",
-    "watch": "tsc --watch",
+    "build:esm": "tsc -p tsconfig.esm.json",
+    "build:cjs": "tsc -p tsconfig.cjs.json",
+    "build": "npm run clean && npm run build:esm && npm run build:cjs",
+    "watch:esm": "tsc -p tsconfig.esm.json --watch",
+    "watch:cjs": "tsc -p tsconfig.cjs.json --watch",
     "prepare": "npm run build",
     "lint": "eslint --ext .ts,.vue .",
     "test": "echo \"Error: no test specified\" && exit 1",

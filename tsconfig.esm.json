@@ -1,0 +1,9 @@
+// packages/vuex-tera-json/tsconfig.esm.json
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "outDir": "./dist/esm"
+  }
+}

@@ -1,0 +1,18 @@
+// packages/vuex-tera-json/tsconfig.base.json
+{
+  "compilerOptions": {
+    /* Build Settings */
+    "target": "ES2015",
+    "declaration": true,
+    "sourceMap": true,
+    "esModuleInterop": true,
+    "rootDir": "./src",
+
+    /* Strictness and Code Quality */
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

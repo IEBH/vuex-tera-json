@@ -1,0 +1,9 @@
+// packages/vuex-tera-json/tsconfig.cjs.json
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "outDir": "./dist/cjs"
+  }
+}
