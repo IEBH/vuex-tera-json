@@ -1,5 +1,16 @@
 # Changelog
 
+## [3.0.7](https://github.com/IEBH/vuex-tera-json/compare/3.0.6...3.0.7) (2025-11-07)
+
+
+### chore
+
+* Revert to REST endpoints for file handling ([161de29](https://github.com/IEBH/vuex-tera-json/commit/161de29b00eb4b49b7594066599b1a35523570f8))
+
+### devops
+
+* Both ESM and CJS builds ([909cc41](https://github.com/IEBH/vuex-tera-json/commit/909cc41e554272a021f1d47f094a01ef8f78251b))
+
 ## [3.0.6](https://github.com/IEBH/vuex-tera-json/compare/3.0.5...3.0.6) (2025-10-31)
 
 
