@@ -57,6 +57,15 @@ export interface TeraPluginConfig {
    * @default () => true
    */
   onBeforeSave?: () => boolean | string;
+
+    /**
+   * An optional function that resets the store to its initial, default state.
+   * This is called before loading data from a file to ensure new state properties
+   * are initialized correctly.
+   * For Pinia, this would typically be `() => store.$reset()`.
+   * For Vuex, `() => store.commit('RESET_STATE')`.
+   */
+    resetState?: () => void;
 }
 
 /**
@@ -271,6 +280,7 @@ const DEFAULT_CONFIG: Required<TeraPluginConfig> = {
   enableSaveHotkey: true,
   loadImmediately: true,
   onBeforeSave: () => true,
+  resetState: () => {}, // Provide a no-op default
 };
 
 const debugLog = (...args: any[]): void => {
@@ -636,6 +646,12 @@ class TeraFileSyncPlugin implements TeraFileSync {
       const fileData = await this.loadStateFromFile();
 
       if (fileData) {
+        // If a reset function is provided, call it before applying the state.
+        if (this.config.resetState) {
+          debugLog('Calling provided store reset function.');
+          this.config.resetState();
+        }
+        // Extract file data and replace state
         const parsedState = objectToMapSet(fileData);
         this.adapter.replaceState(parsedState);
         debugLog('Store state replaced from file data.');
