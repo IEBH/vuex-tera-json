@@ -65,7 +65,7 @@ export interface TeraPluginConfig {
    * For Pinia, this would typically be `() => store.$reset()`.
    * For Vuex, `() => store.commit('RESET_STATE')`.
    */
-    resetState?: () => void;
+    resetState?: () => void | Promise<void>;
 }
 
 /**
@@ -648,8 +648,8 @@ class TeraFileSyncPlugin implements TeraFileSync {
       if (fileData) {
         // If a reset function is provided, call it before applying the state.
         if (this.config.resetState) {
-          debugLog('Calling provided store reset function.');
-          this.config.resetState();
+          debugLog('Calling provided store reset function (async).');
+          await this.config.resetState();
         }
         // Extract file data and replace state
         const parsedState = objectToMapSet(fileData);
