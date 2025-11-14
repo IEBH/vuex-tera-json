@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.0.8](https://github.com/IEBH/vuex-tera-json/compare/3.0.7...3.0.8) (2025-11-14)
+
+
+### feat
+
+* Optional resetState function to be called when loading file ([97802fa](https://github.com/IEBH/vuex-tera-json/commit/97802fa6c8426f8893ce05e51480fdc89e26658d))
+
 ## [3.0.7](https://github.com/IEBH/vuex-tera-json/compare/3.0.6...3.0.7) (2025-11-07)
 
 
