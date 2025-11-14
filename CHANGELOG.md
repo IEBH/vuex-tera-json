@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.0.10](https://github.com/IEBH/vuex-tera-json/compare/3.0.9...3.0.10) (2025-11-14)
+
+
+### fix
+
+* Allow async replaceState ([a6b2f0f](https://github.com/IEBH/vuex-tera-json/commit/a6b2f0f467b3f1ed093fd7009310351df0c076b2))
+
 ## [3.0.9](https://github.com/IEBH/vuex-tera-json/compare/3.0.8...3.0.9) (2025-11-14)
 
 
