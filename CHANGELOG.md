@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.0.9](https://github.com/IEBH/vuex-tera-json/compare/3.0.8...3.0.9) (2025-11-14)
+
+
+### fix
+
+* Allow async resetState ([0480c0a](https://github.com/IEBH/vuex-tera-json/commit/0480c0a76768996b0cef80be01b599c6c5a0a419))
+
 ## [3.0.8](https://github.com/IEBH/vuex-tera-json/compare/3.0.7...3.0.8) (2025-11-14)
 
 
