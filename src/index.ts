@@ -179,7 +179,7 @@ export interface PlainObjectStore {
   /** Returns the complete state object to be serialized. */
   getState(): any;
   /** Replaces the state with the new state object from a file. */
-  replaceState(newState: any): void;
+  replaceState(newState: any): void | Promise<void>;
   /** Updates the save status indicator. */
   updateSaveStatus(status: SaveStatus): void;
   /** Subscribes to state changes and returns an unsubscribe function. */
@@ -424,7 +424,7 @@ abstract class StoreAdapter {
   }
 
   abstract getState(): any;
-  abstract replaceState(newState: any): void;
+  abstract replaceState(newState: any): void | Promise<void>;
   abstract updateSaveStatus(status: SaveStatus): void;
   abstract subscribe(callback: (mutation?: any) => void): void;
   abstract setup(): void;
@@ -549,11 +549,11 @@ class PlainObjectAdapter extends StoreAdapter {
         return this.store.getState();
     }
 
-    replaceState(newState: any): void {
+    async replaceState(newState: any): Promise<void> {
         if (typeof this.store.replaceState !== 'function') {
             throw new Error("The provided object for PlainObjectAdapter must have a 'replaceState' method.");
         }
-        this.store.replaceState(newState);
+        await this.store.replaceState(newState);
     }
 
     updateSaveStatus(status: SaveStatus): void {
@@ -653,7 +653,7 @@ class TeraFileSyncPlugin implements TeraFileSync {
         }
         // Extract file data and replace state
         const parsedState = objectToMapSet(fileData);
-        this.adapter.replaceState(parsedState);
+        await this.adapter.replaceState(parsedState);
         debugLog('Store state replaced from file data.');
         this.updateSaveStatus(SaveStatus.SAVED);
         return true;
@@ -1036,7 +1036,7 @@ class TeraFileSyncPlugin implements TeraFileSync {
       }
 
       const parsedState = objectToMapSet(fileData);
-      this.adapter.replaceState(parsedState);
+      await this.adapter.replaceState(parsedState);
 
       const key = await this.getStorageKey();
       await this.vueInstance.$tera.setProjectState(`temp.${key}`, projectFile.path);
