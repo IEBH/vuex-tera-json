@@ -953,8 +953,9 @@ class TeraFileSyncPlugin implements TeraFileSync {
       return;
     }
 
-    if (this.vueInstance.$tera.uiProgress) {
-        await this.vueInstance.$tera.uiProgress({ title: 'Initializing tool data', backdrop: 'static' });
+    // Only show UI progress if we are actually going to load immediately
+    if (loadImmediately && this.vueInstance.$tera.uiProgress) {
+        await this.vueInstance.$tera.uiProgress({ title: 'Loading tool data', backdrop: 'static' });
     }
 
     try {
@@ -973,7 +974,8 @@ class TeraFileSyncPlugin implements TeraFileSync {
       showNotification('Error initializing state from file');
     } finally {
       this.initialized = true;
-      if (this.vueInstance.$tera.uiProgress) {
+      // Only hide UI progress if we showed it in the first place
+      if (loadImmediately && this.vueInstance.$tera.uiProgress) {
         await this.vueInstance.$tera.uiProgress(false);
       }
     }
