@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.0.12](https://github.com/IEBH/vuex-tera-json/compare/3.0.11...3.0.12) (2025-11-20)
+
+
+### fix
+
+* Issue with multiple uiProgress if not loading immediately ([c73875f](https://github.com/IEBH/vuex-tera-json/commit/c73875f3749921f6401a60e59de1698b29f169d1))
+
 ## [3.0.11](https://github.com/IEBH/vuex-tera-json/compare/3.0.10...3.0.11) (2025-11-20)
 
 
