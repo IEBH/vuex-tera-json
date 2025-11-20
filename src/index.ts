@@ -954,7 +954,7 @@ class TeraFileSyncPlugin implements TeraFileSync {
     }
 
     if (this.vueInstance.$tera.uiProgress) {
-        await this.vueInstance.$tera.uiProgress({ title: 'Loading tool data', backdrop: 'static' });
+        await this.vueInstance.$tera.uiProgress({ title: 'Initializing tool data', backdrop: 'static' });
     }
 
     try {
