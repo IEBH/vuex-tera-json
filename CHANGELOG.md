@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.0.11](https://github.com/IEBH/vuex-tera-json/compare/3.0.10...3.0.11) (2025-11-20)
+
+
+### chore
+
+* More robust loading prompts ([e3d6234](https://github.com/IEBH/vuex-tera-json/commit/e3d62341243fb485fcac98e8e18aebc6e2c4b780))
+* Remove unnecessary save status ([c3d7758](https://github.com/IEBH/vuex-tera-json/commit/c3d7758e1cd8e9a00dd633508e1fe33bb84b0e00))
+
 ## [3.0.10](https://github.com/IEBH/vuex-tera-json/compare/3.0.9...3.0.10) (2025-11-14)
 
 
