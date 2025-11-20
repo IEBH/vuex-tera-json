@@ -879,7 +879,6 @@ class TeraFileSyncPlugin implements TeraFileSync {
         debugLog('File not found or empty');
         return null;
       }
-      this.updateSaveStatus(SaveStatus.SAVED);
       debugLog('State loaded from file successfully:', fileContent);
       return fileContent;
     } catch (error: any) {
