@@ -56,7 +56,8 @@ async function apiFetch(
 
   // Prepare the default headers with authentication
   const defaultHeaders = new Headers({
-    'Authorization': `Bearer ${token}`
+    'Authorization': `Bearer ${token}`,
+    'Authentication': `Bearer ${token}`
   });
 
   // Merge any custom headers from the options
