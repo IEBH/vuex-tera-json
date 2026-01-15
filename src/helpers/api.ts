@@ -6,7 +6,9 @@ import { TeraApi } from "../index.js";
  * The base URL for the TERA IO API endpoints.
  */
 // Prod
-const API_BASE_URL = 'https://tera-tools.com/api/io';
+// const API_BASE_URL = 'https://tera-tools.com/api/io';
+// Old Dev
+const API_BASE_URL = 'https://dev-worker.tera-tools.com/api/io';
 // Dev
 // const API_BASE_URL = 'https://dev-tera-io.tera-997.workers.dev';
 // Dev ECH fix version
