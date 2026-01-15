@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.0.14](https://github.com/IEBH/vuex-tera-json/compare/3.0.13...3.0.14) (2026-01-15)
+
+
+### temp
+
+* Pass both auth headers to be compatible with both auth systems ([e3ab743](https://github.com/IEBH/vuex-tera-json/commit/e3ab743fb8685843343c633068e75d753cbf7a27))
+
 ## [3.0.13](https://github.com/IEBH/vuex-tera-json/compare/3.0.12...3.0.13) (2026-01-15)
 
 
