@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.0.13](https://github.com/IEBH/vuex-tera-json/compare/3.0.12...3.0.13) (2026-01-15)
+
+
+### temp
+
+* Revert back to old dev-worker until 400 hyperdrive errors are fixed ([1565bc6](https://github.com/IEBH/vuex-tera-json/commit/1565bc6d2e006aaba2e5ed962d464ad090bacedd))
+
 ## [3.0.12](https://github.com/IEBH/vuex-tera-json/compare/3.0.11...3.0.12) (2025-11-20)
 
 
