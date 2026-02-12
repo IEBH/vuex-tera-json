@@ -1040,9 +1040,23 @@ class TeraFileSyncPlugin implements TeraFileSync {
       await this.adapter.replaceState(parsedState);
 
       const key = await this.getStorageKey();
-      await this.vueInstance.$tera.setProjectState(`temp.${key}`, projectFile.path);
 
-      debugLog('Store initialized from prompted file data');
+      // Clear the current file association in TERA's project state (both local cache and persistent state).
+      // This ensures the plugin no longer points to the previous file, nor does it link to the
+      // specific file the user just selected.
+      if (this.vueInstance.$tera.project.temp) {
+         delete this.vueInstance.$tera.project.temp[key];
+      }
+      await this.vueInstance.$tera.setProjectState(`temp.${key}`, null);
+
+      // Trigger a save. Since the key is cleared above, getStorageFileName will:
+      // 1. Generate a NEW unique filename (data-prefix-nanoid.json)
+      // 2. Create that file
+      // 3. Write the current store state (the imported data) to it
+      // 4. Set the temp key to point to this NEW file
+      debugLog('Store initialized from prompted file data. Saving to new copy...');
+      await this.saveStateToFile();
+
       this.updateSaveStatus(SaveStatus.SAVED);
     } catch (error) {
       logError(error, 'Failed to set state from prompted JSON file');
