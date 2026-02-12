@@ -1,5 +1,16 @@
 # Changelog
 
+## [3.0.15](https://github.com/IEBH/vuex-tera-json/compare/3.0.14...3.0.15) (2026-02-12)
+
+
+### chore
+
+* Version bump release-it ([634b08e](https://github.com/IEBH/vuex-tera-json/commit/634b08e1d771fc09aea8c3a2bfbc730c53c36ef5))
+
+### fix
+
+* Create a copy when restoring json via prompt ([3f451ed](https://github.com/IEBH/vuex-tera-json/commit/3f451ed7aa2ff657f3b70563f90a407add5e1afe))
+
 ## [3.0.14](https://github.com/IEBH/vuex-tera-json/compare/3.0.13...3.0.14) (2026-01-15)
 
 
