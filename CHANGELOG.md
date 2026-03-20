@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.0.16](https://github.com/IEBH/vuex-tera-json/compare/3.0.15...3.0.16) (2026-03-20)
+
+
+### feat
+
+* Add createDataFileBackup() method ([6f188da](https://github.com/IEBH/vuex-tera-json/commit/6f188da91be0207789279c1104c8fe9fcfbed468))
+
 ## [3.0.15](https://github.com/IEBH/vuex-tera-json/compare/3.0.14...3.0.15) (2026-02-12)
 
 
