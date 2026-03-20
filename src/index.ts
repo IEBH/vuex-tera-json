@@ -265,6 +265,12 @@ export interface TeraFileSync {
    * Should be called when the component using the plugin is destroyed.
    */
   destroy(): void;
+
+  /**
+   * Creates a backup copy of the current data file.
+   * @returns A promise that resolves to `true` if the backup was successful, `false` otherwise.
+   */
+  createDataFileBackup(): Promise<boolean>;
 }
 
 
@@ -713,6 +719,69 @@ class TeraFileSyncPlugin implements TeraFileSync {
     this.adapter.destroy();
     this.initialized = false;
     this.teraReady = false;
+  }
+
+  public async createDataFileBackup(): Promise<boolean> {
+    if (!this.vueInstance) {
+      logError(new Error('Vue instance not set'), 'Backup failed');
+      return false;
+    }
+
+    try {
+      if (this.vueInstance.$tera.uiProgress) {
+        await this.vueInstance.$tera.uiProgress({ title: 'Creating backup...', backdrop: 'static' });
+      }
+
+      // Get the data to backup
+      let dataToBackup = mapSetToObject(this.adapter.getState());
+      if (!dataToBackup) {
+        debugLog('No existing file found on disk for backup. Backing up current from disk instead.');
+        dataToBackup = await this.loadStateFromFile();
+      }
+
+      // Generate a formatted datetime string (YYYYMMDD-HHMMSS)
+      const now = new Date();
+      const pad = (n: number) => n.toString().padStart(2, '0');
+      const current_datetime = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+
+      // Construct the backup filename
+      const backupFileName = `data-${this.config.keyPrefix}-backup-${current_datetime}.json`;
+
+      // Create the new file in TERA
+      const backupFile = await pRetry(() => this.vueInstance!.$tera.createProjectFile(backupFileName), {
+        retries: 2,
+        minTimeout: 200,
+        onFailedAttempt: error => debugLog(`[Create backup file attempt ${error.attemptNumber}] Failed. Retries left: ${error.retriesLeft}.`),
+      });
+
+      // Write the data to the newly created file
+      await pRetry(() => backupFile.setContents(dataToBackup), {
+        retries: 2,
+        minTimeout: 200,
+        onFailedAttempt: error => debugLog(`[Set backup contents attempt ${error.attemptNumber}] Failed. Retries left: ${error.retriesLeft}.`),
+      });
+
+      debugLog(`Backup created successfully: ${backupFileName}`);
+
+      // Optional: Show a success notification if Element UI or similar is available
+      if (this.vueInstance.$notify) {
+        this.vueInstance.$notify({
+          title: 'Backup Successful',
+          message: `Backup saved as ${backupFileName}`,
+          type: 'success'
+        });
+      }
+
+      return true;
+    } catch (error) {
+      logError(error, 'Failed to create data file backup');
+      showNotification('Failed to create backup file.');
+      return false;
+    } finally {
+      if (this.vueInstance?.$tera?.uiProgress) {
+        await this.vueInstance.$tera.uiProgress(false);
+      }
+    }
   }
 
   // --- Internal Methods ---
