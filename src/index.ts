@@ -58,22 +58,25 @@ export interface TeraPluginConfig {
    */
   onBeforeSave?: () => boolean | string;
 
-    /**
+  /**
    * An optional function that resets the store to its initial, default state.
    * This is called before loading data from a file to ensure new state properties
    * are initialized correctly.
    * For Pinia, this would typically be `() => store.$reset()`.
    * For Vuex, `() => store.commit('RESET_STATE')`.
    */
-    resetState?: () => void | Promise<void>;
+  resetState?: () => void | Promise<void>;
 }
 
 /**
  * Represents the possible save statuses of the state.
  */
 export enum SaveStatus {
+  /** Indicates that all current changes are safely stored */
   SAVED = 'Saved',
+  /** Indicates that there are modifications pending to be saved */
   UNSAVED = 'Unsaved changes',
+  /** Indicates that a save operation is currently in progress */
   SAVING = 'Saving...',
 }
 
@@ -83,7 +86,9 @@ export enum SaveStatus {
  * A simplified representation of the TERA user object.
  */
 export interface TeraUser {
+  /** The unique identifier of the user */
   id: string | number;
+  /** Additional custom properties */
   [key: string]: any;
 }
 
@@ -91,7 +96,12 @@ export interface TeraUser {
  * Options for TERA's UI progress indicator.
  */
 export interface TeraUiProgressOptions {
+  /** The text title to display in the progress indicator */
   title: string;
+  /**
+   * Defines the backdrop behaviour.
+   * 'static' prevents closing the progress UI when clicking outside.
+   */
   backdrop: 'static' | boolean;
 }
 
@@ -99,9 +109,13 @@ export interface TeraUiProgressOptions {
  * Options for TERA's project file selection dialog.
  */
 export interface TeraSelectProjectFileOptions {
+  /** The title of the file selection dialog */
   title: string;
+  /** Whether to show hidden files in the selection dialog */
   showHiddenFiles: boolean;
+  /** File filters to restrict what can be selected */
   filters?: {
+    /** The file extension to filter by (e.g., 'json') */
     ext: string;
   }
 }
@@ -110,9 +124,21 @@ export interface TeraSelectProjectFileOptions {
  * A simplified representation of a TERA project file object.
  */
 export interface TeraProjectFile {
+  /** The absolute or relative path to the file */
   path: string;
+  /** The last modification date/time of the file */
   modified: string | number | Date;
+  /**
+   * Retrieves the contents of the file.
+   * @param options Format options for reading the file.
+   * @returns A promise resolving to the file contents.
+   */
   getContents(options?: { format: 'json' | 'text' }): Promise<any>;
+  /**
+   * Sets the contents of the file.
+   * @param data The data to write to the file.
+   * @returns A promise resolving when the write is complete.
+   */
   setContents(data: any): Promise<void>;
 }
 
@@ -120,19 +146,62 @@ export interface TeraProjectFile {
  * The `$tera` API object expected to be available on the Vue instance.
  */
 export interface TeraApi {
+  /** Information relating to the current active project */
   project: {
+    /** The unique ID of the project */
     id: string | number;
+    /** Temporary storage associated with the project */
     temp: Record<string, any>;
   };
+  /** Fetches the active TERA user */
   getUser(): Promise<TeraUser>;
+  /** Retrieves standard TERA application credentials */
   getCredentials(): object;
+  /** Retrieves the Kinde authentication token */
   getKindeToken(): string;
+  /**
+   * Retrieves a specific project file without its content.
+   * @param fileName The name of the file to retrieve.
+   * @param options Caching options.
+   * @returns A promise resolving to the file object, or null if not found.
+   */
   getProjectFile(fileName: string, options?: { cache: boolean }): Promise<TeraProjectFile | null>;
+  /**
+   * Retrieves the contents of a specific project file.
+   * @param encodedFileName The URI-encoded name of the file to read.
+   * @param options Format parsing options.
+   * @returns A promise resolving to the content.
+   */
   getProjectFileContents(encodedFileName: string, options?: { format: 'json' | 'text' }): Promise<any>;
+  /**
+   * Writes data to a specific project file.
+   * @param encodedFileName The URI-encoded name of the file.
+   * @param data The content payload to write.
+   * @param options Setting options.
+   */
   setProjectFileContents(encodedFileName: string, data: any, options?: { format: 'json' }): Promise<void>;
+  /**
+   * Creates a new project file securely.
+   * @param fileName The name of the new file.
+   * @returns A promise resolving to the new file object.
+   */
   createProjectFile(fileName: string): Promise<TeraProjectFile>;
+  /**
+   * Updates state data bound to the current project context.
+   * @param key The state key to update.
+   * @param value The value to associate with the key.
+   */
   setProjectState(key: string, value: any): Promise<void>;
+  /**
+   * Prompts the user with a UI dialog to select a project file.
+   * @param options Configuration for the file picker.
+   * @returns A promise resolving to the selected file, or null if cancelled.
+   */
   selectProjectFile(options: TeraSelectProjectFileOptions): Promise<TeraProjectFile | null>;
+  /**
+   * Toggles or configures the TERA-level UI progress overlay.
+   * @param options Progress config, or `false` to hide.
+   */
   uiProgress(options: TeraUiProgressOptions | false): Promise<void>;
 }
 
@@ -140,6 +209,7 @@ export interface TeraApi {
  * A representation of the Vue instance required by the plugin.
  */
 export interface VueInstance {
+  /** The TERA API object natively injected into the application */
   $tera: TeraApi;
   /** Optional notification function, e.g., from Element UI. */
   $notify?(options: any): void;
@@ -151,12 +221,19 @@ export interface VueInstance {
  * A generic interface for a Vuex-like store.
  */
 export interface VuexStore {
+  /** The root state object */
   state: any;
+  /** Commits a mutation */
   commit(mutationType: string, payload?: any): void;
+  /** Subscribes to store mutations */
   subscribe(handler: (mutation: any, state: any) => any): () => void;
+  /** Checks if a module is registered at the given path */
   hasModule(path: string | string[]): boolean;
+  /** Registers a dynamic module */
   registerModule(path: string | string[], module: any, options?: any): void;
+  /** Unregisters a dynamic module */
   unregisterModule(path: string | string[]): void;
+  /** Replaces the root state */
   replaceState(state: any): void;
 }
 
@@ -164,10 +241,15 @@ export interface VuexStore {
  * A generic interface for a Pinia-like store.
  */
 export interface PiniaStore {
+  /** The unique identifier of the store */
   $id: string;
+  /** Applies a state patch */
   $patch(state: Partial<any>): void;
+  /** Subscribes to state/mutation changes */
   $subscribe(callback: (mutation: any, state: any) => void, options?: any): () => void;
+  /** The actual state object */
   $state: any;
+  /** Optional tracking property for the save status */
   saveStatus?: SaveStatus;
 }
 
@@ -197,6 +279,7 @@ export type SyncableStore = VuexStore | PiniaStore | PlainObjectStore;
  * Metadata for the storage file.
  */
 export interface FileMetadata {
+  /** The date the file was last modified */
   modified: Date;
 }
 
