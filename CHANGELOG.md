@@ -1,5 +1,17 @@
 # Changelog
 
+## [3.0.17](https://github.com/IEBH/vuex-tera-json/compare/3.0.16...3.0.17) (2026-04-23)
+
+
+### docs
+
+* Add missing JSDoc specifications ([231692f](https://github.com/IEBH/vuex-tera-json/commit/231692f974f8a98cea6f1368fb546ef424ad6358))
+* Update readme + add details about Vue 2 + 3 compatibility ([8f497a1](https://github.com/IEBH/vuex-tera-json/commit/8f497a19ac958c2ea9472bb1f97b2ac9fd0b437a))
+
+### feat
+
+* Update url to prod version ([f1e1d0f](https://github.com/IEBH/vuex-tera-json/commit/f1e1d0f06633f75d4de54764ff84be3bd59970ba))
+
 ## [3.0.16](https://github.com/IEBH/vuex-tera-json/compare/3.0.15...3.0.16) (2026-03-20)
 
 
