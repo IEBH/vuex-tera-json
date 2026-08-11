@@ -883,9 +883,10 @@ class TeraFileSyncPlugin implements TeraFileSync {
 
   private handleBeforeUnload(event: BeforeUnloadEvent): string | undefined {
     if (this._saveStatus === SaveStatus.UNSAVED) {
-      const message = 'You have unsaved changes. Are you sure you want to leave?';
-      event.returnValue = message;
-      return message;
+      //const message = 'You have unsaved changes. Are you sure you want to leave?';
+      //event.returnValue = message;
+      //return message;
+      debugLog("User in unsaved state.");
     }
     return undefined;
   }
