@@ -124,6 +124,8 @@ export interface TeraSelectProjectFileOptions {
  * A simplified representation of a TERA project file object.
  */
 export interface TeraProjectFile {
+  /** The relative name path of the file within the project */
+  name: string;
   /** The absolute or relative path to the file */
   path: string;
   /** The last modification date/time of the file */
@@ -831,14 +833,14 @@ class TeraFileSyncPlugin implements TeraFileSync {
       const backupFileName = `data-${this.config.keyPrefix}-backup-${current_datetime}.json`;
 
       // Create the new file in TERA
-      const backupFile = await pRetry(() => this.vueInstance!.$tera.createProjectFile(backupFileName), {
+      await pRetry(() => this.vueInstance!.$tera.createProjectFile(backupFileName), {
         retries: 2,
         minTimeout: 200,
         onFailedAttempt: error => debugLog(`[Create backup file attempt ${error.attemptNumber}] Failed. Retries left: ${error.retriesLeft}.`),
       });
 
-      // Write the data to the newly created file
-      await pRetry(() => backupFile.setContents(dataToBackup), {
+      // Write the data to the newly created file via the IO API (same channel as saves/loads)
+      await pRetry(() => api.saveFileContent(this.projectId, backupFileName, dataToBackup, this.vueInstance!.$tera), {
         retries: 2,
         minTimeout: 200,
         onFailedAttempt: error => debugLog(`[Set backup contents attempt ${error.attemptNumber}] Failed. Retries left: ${error.retriesLeft}.`),
@@ -984,13 +986,15 @@ class TeraFileSyncPlugin implements TeraFileSync {
       debugLog("No existing file for project/tool, creating one");
       fileStorageName = `data-${this.config.keyPrefix}-${nanoid()}.json`;
 
-      const newFile = await pRetry(() => this.vueInstance!.$tera.createProjectFile(fileStorageName), {
+      await pRetry(() => this.vueInstance!.$tera.createProjectFile(fileStorageName), {
           retries: 2,
           minTimeout: 200,
           onFailedAttempt: error => debugLog(`[Create file attempt ${error.attemptNumber}] Failed. Retries left: ${error.retriesLeft}.`),
       });
 
-      await pRetry(() => newFile.setContents(this.adapter.getState()), {
+      // Write via the IO API (same as saveStateToFile) so reads never see a divergent copy
+      // NOTE: mapSetToObject() is required, otherwise Maps/Sets serialize to {}
+      await pRetry(() => api.saveFileContent(this.projectId, fileStorageName, mapSetToObject(this.adapter.getState()), this.vueInstance!.$tera), {
           retries: 2,
           minTimeout: 200,
           onFailedAttempt: error => debugLog(`[Set contents attempt ${error.attemptNumber}] Failed. Retries left: ${error.retriesLeft}.`),
@@ -1177,7 +1181,15 @@ class TeraFileSyncPlugin implements TeraFileSync {
         return;
       }
 
-      const fileData = await pRetry(() => projectFile.getContents({ format: 'json' }), {
+      // Read via the IO API first - this is where saveStateToFile() writes, so it holds the latest data.
+      // projectFile.getContents() reads TERA's file storage, which may only hold the (empty) contents
+      // written when the file was first created. Fall back to it for files never written via the IO API.
+      const fileData = await pRetry(async () => {
+          const ioContent = await api.getFileContent(this.projectId, projectFile.name, this.vueInstance!.$tera);
+          if (ioContent) return ioContent;
+          debugLog(`File ${projectFile.name} not found via IO API, falling back to TERA file storage.`);
+          return projectFile.getContents({ format: 'json' });
+      }, {
           retries: 3,
           minTimeout: 1000,
           onFailedAttempt: error => debugLog(`[Load Prompted File Attempt ${error.attemptNumber}] Failed. Retries left: ${error.retriesLeft}.`),
